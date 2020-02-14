@@ -43,7 +43,7 @@ def ipaddressToByteString(addr):
     byte_string = addr_class.packed
     return byte_string
 
-def syncMessage(epoch):
+def syncMessage(epoch, send_IP=0):
 
     ip = ipaddressToByteString(ni.ifaddresses('wpan0')[10][0]['addr'])
     epoch_string = pack('q', epoch)
@@ -61,12 +61,16 @@ def networkAddrHandler(import_queue, export_queue, reset_sem, pass_table_sem):
 
     while True:
         try:
-            ip_addr = import_queue.get(timeout=1)
-            # print("  got ip")
+            ip_addr, node_type, description, UID = import_queue.get(timeout=1)
+
+            print("  got ip to update table : " + str(UID))
+            print("  current table : " + str(networkList))
 
             # associate a timestamp of when ip address was added
             #   note: if it already exists, timestamp is refreshed
-            networkList[ip_addr] = time.time()
+            networkList[UID] = (ip_addr, node_type, time.time(), description)
+
+            print("  new table : " + str(networkList))
             # print(networkList)
             # check if its requested to pass the current table
             if pass_table_sem.acquire(blocking=False):
@@ -116,13 +120,42 @@ def postMessageNodeThread(active_threads_sem, ip_address, coap_path, message, po
     # release semaphore when complete
     active_threads_sem.release()
 
-def postMessageIndividualNodes(ip_addresses, coap_path, message, port=5683, timeout=1, no_response=True):
+def getMessageNodeThread(active_threads_sem, ip_address, coap_path, port, timeout=5, no_response=True):
+
+    global networkList
+
+    # grab semaphore if available
+    active_threads_sem.acquire()
+
+    print("Sending message to : " + str(ip_address) + "\t" + "coap_path : " + str(coap_path))
+
+    # send message to client
+    client = HelperClient(server=(ip_address, port))
+    # response = client.post(coap_path, message, timeout=timeout)
+    # print(" DEBUG: sending to : " + str(coap_path) + '\t' + str(message))
+    response = client.get(coap_path, timeout=timeout, no_response=no_response)
+    client.stop()
+
+    # if checking if device is still on network
+    if coap_path == "devInfo":
+        # if no response received, remove from IP table
+        if response is None:
+            del networkList[ip_address]
+
+    print("Sent message to : " + str(ip_address) + "\t" + "coap_path : " + str(coap_path))
+
+    # release semaphore when complete
+    active_threads_sem.release()
+
+def postMessageIndividualNodes(ip_addresses, coap_path, message, port=5683, timeout=1,  no_response=True):
 
     # define how many threads can be active at any given time
     active_threads_sem = threading.Semaphore(5)
 
     # define variable to hold all the thread defines
     threads = []
+
+    print(" COAP SERVER: posting messages to : " + str(ip_addresses) + " " + str(type(ip_addresses)))
 
     # message all nodes in ip_addresses
     for addr in ip_addresses:
@@ -137,6 +170,28 @@ def postMessageIndividualNodes(ip_addresses, coap_path, message, port=5683, time
     for t in threads:
         t.join()
 
+def getMessageIndividualNodes(ip_addresses, coap_path, message=str(), port=5683, timeout=1,  no_response=True):
+
+    # define how many threads can be active at any given time
+    active_threads_sem = threading.Semaphore(5)
+
+    # define variable to hold all the thread defines
+    threads = []
+
+    print(" COAP SERVER: posting messages to : " + str(ip_addresses) + " " + str(type(ip_addresses)))
+
+    # message all nodes in ip_addresses
+    for addr in ip_addresses:
+
+        # create thread and append it to thread list
+        threads.append(threading.Thread(target=getMessageNodeThread,
+                                        args=(active_threads_sem, addr, coap_path, port, timeout, no_response,)))
+        # start thread
+        threads[-1].start()
+
+    # Wait for all threads to complete
+    for t in threads:
+        t.join()
 
 # this function grabs a sensor data packet received from the glasses and sends it to a connected client
 def sensorDataReceived(ip_data_queue, data_queue, addr_queue, port, data_collector_sem):
@@ -157,7 +212,7 @@ def sensorDataReceived(ip_data_queue, data_queue, addr_queue, port, data_collect
             sender_addr, packet = data_queue.get(timeout=10)
             print(" DEBUG: grabbed from queue");
             # check if IP is in list of known (if not, add)
-            addr_queue.put(sender_addr)
+            addr_queue.put((sender_addr, 0))
 
             # todo: can make this more efficient by leaving socket open and making this a thread
             # define socket
@@ -299,14 +354,101 @@ class TimeSyncResource(Resource):
         addr = str(request.source[0])
 
         # post message to requester
-        postMessageIndividualNodes(addr, "borderTime", message)
+        postMessageIndividualNodes([addr], "borderTime", message)
 
         return self
 
     def render_PUT(self, request):
         self.edit_resource(request)
-        print("  COAP Server : BORDER ADDRESS PUT REQUEST BY: " + str(request.source[0]))
-        self.ip_importer.put(str(request.source[0]))
+        print("  COAP Server : NODE SENT IP TO BORDER : " + str(request.source[0]))
+        print("     IP: " + str(request.source[0]))
+        print("     Payload: " + str(request.payload))
+        node_type, description, UID = unpack('12s12s8s', request.payload)
+        # UID = int.fromt_bytes(UID, byteorder='little')
+        print("     UID: " + str(UID))
+        self.ip_importer.put([str(request.source[0]), node_type.decode().rstrip('\x00'), description.decode().rstrip('\x00'), UID])
+
+        # # grab unix time
+        # epoch = long(time.time())
+        #
+        # # packet border IP address and system time
+        # message = pack('50sl', str(ni.ifaddresses('wpan0')[10][1]['addr']), epoch)
+        #
+        # # address of requester
+        # addr = str(request.source[0])
+        #
+        # # post message to requester
+        # postMessageIndividualNodes(addr, "borderTime", message)
+
+        return self
+
+    # def read_sensor(self, first=False):
+    #     self.light1 = random.randint(0, 1000)
+    #     self.light2 = random.randint(0, 2000)
+    #     self.value = [{"n": "light1", "v": self.light1, "u": "lx", "bt": time.time()},
+    #                   {"n": "light2", "v": self.light2, "u": "lx"}]
+    #     self.payload = (defines.Content_types["application/json"], json.dumps(self.value))
+    #     if not self._coap_server.stopped.isSet():
+    #
+    #         timer = threading.Timer(self.period, self.read_sensor)
+    #         timer.setDaemon(True)
+    #         timer.start()
+    #
+    #         if not first and self._coap_server is not None:
+    #             self._coap_server.notify(self)
+    #             self.observe_count += 1
+
+class NodeInfoResource(Resource):
+    def __init__(self, name="TimeSyncResource", import_ip_queue=None, coap_server=None):
+        super(NodeInfoResource, self).__init__(name, coap_server, visible=True,
+                                            observable=True, allow_children=False)
+        self.resource_type = "TimeSyncResource"
+        self.content_type = "text/plain"
+
+        self.ip_importer = import_ip_queue
+        # self.light1 = 0
+        # self.light2 = 0
+        #
+        # self.value = [{"n": "light1", "v": self.light1, "u": "lx", "bt": time.time()},
+        #               {"n": "light2", "v": self.light2, "u": "lx"}]
+        # self.period = 5
+        #self.read_sensor(True)
+
+    def render_GET(self, request):
+        # # self.value = [{"n": "light1", "v": self.light1, "u": "lx", "bt": time.time()},
+        # #               {"n": "light2", "v": self.light2, "u": "lx"}]
+        # #
+        # # self.payload = (defines.Content_types["application/json"], json.dumps(self.value))
+        #
+        # self.edit_resource(request)
+        #
+        # print("  COAP Server : BORDER ADDRESS REQUESTED BY: " + str(request.source[0]))
+        #
+        # # grab unix time
+        # epoch = int(time.time())
+        #
+        # # packet border IP address and system time
+        # # message = pack('50s2xq4x', str(ni.ifaddresses('wpan0')[10][0]['addr']).encode(), epoch)
+        # message = syncMessage(epoch)
+        # # self.payload = (defines.Content_types["applicaiton/json"], str(message))
+        #
+        # # address of requester
+        # addr = str(request.source[0])
+        #
+        # # post message to requester
+        # postMessageIndividualNodes([addr], "borderTime", message)
+
+        return self
+
+    def render_PUT(self, request):
+        self.edit_resource(request)
+        print("  COAP Server : NODE SENT IP TO BORDER : " + str(request.source[0]))
+        print("     IP: " + str(request.source[0]))
+        print("     Payload: " + str(request.payload))
+        node_type, description, UID = unpack('12s12sq', request.payload)
+        print("     UID: " + str(UID))
+        self.ip_importer.put([str(request.source[0]), node_type.decode().rstrip('\x00'), description.decode().rstrip('\x00'), UID])
+
         #
         # # grab unix time
         # epoch = long(time.time())
@@ -387,13 +529,13 @@ def msgReceiveThread(c, ip_data_queue, pass_ip_table_sem):
 
                 if msg_unpacked == "start_stream":
                     # todo: how to pick ip address (is it the visualizer??)
-                    data = pack('BBBBBB', 1, 1, 1, 1, 1, 0)
+                    data = pack('BBBBBB', 1, 1, 1, 1, 1, 1)
                     postMessageIndividualNodes(["FF03::1"], "togLog", data, port=5683)
                     # postMessageIndividualNodes(ip_addresses, "togLog", data, port=5683)
                     continue
                 elif msg_unpacked == "get_ip_table":
                     print("  COAP Server : sending IP table to connected client")
-
+                    print(networkList)
                     # convert dictionary to string, encrypt it, and send
                     encrypted_msg = en.do_encrypt(json.dumps(networkList))
                     c.send(encrypted_msg)
@@ -405,16 +547,22 @@ def msgReceiveThread(c, ip_data_queue, pass_ip_table_sem):
                     # postMessageIndividualNodes(ip_addresses, "togLog", data, port=5683)
                     continue
                 elif msg_unpacked == "broadcast_border_ip":
+
+                    # reset IP table
+                    networkList = {}
+
                     # grab unix time
                     epoch = int(time.time())
 
                     # packet border IP address and system time
-                    message = syncMessage(epoch)
+                    message = syncMessage(epoch, send_IP=1)
                     # message = pack('50sq', str(ni.ifaddresses('wpan0')[10][0]['addr']).encode(), epoch)
                     # self.payload = (defines.Content_types["applicaiton/json"], str(message))
                     # print(" DEBUG : broadcast_border_ip : " + str(message))
                     # post message to requester
                     postMessageIndividualNodes(["FF03::1"], "borderTime", message)
+
+                    getMessageIndividualNodes(["FF03::1"], "nodeInfo")
 
             # print('af -> prev_message : ' + str(prev_message) + "\t\t" + "current_message : " + str(data))
 
@@ -614,9 +762,11 @@ def coapServer():
     # define and add resources
     logger = CaptivatesLoggerResource(data_queue=data_queue, coap_server=server)
     time_sync = TimeSyncResource(coap_server=server, import_ip_queue=recv_addr_queue)
+    node_info = NodeInfoResource(coap_server=server, import_ip_queue=recv_addr_queue)
     test_resource = DebugResource(coap_server=server)
+    server.add_resource('nodeInfo/', node_info)
     server.add_resource('borderLog/', logger)
-    server.add_resource('borderSync/', time_sync)
+    server.add_resource('borderTime/', time_sync)
     server.add_resource('borderTest/', test_resource)
 
     '''

@@ -208,11 +208,11 @@ if __name__ == '__main__':
 
     # d2 = Dock("Dock2 - Console", size=(500, 300), closable=True)
 
-    d_inertial = Dock("Inertial Data", size=(150, 75), closable=True)
+    d_inertial = Dock("Inertial Data", size=(150, 50), closable=True)
 
     d_input_console = Dock("Server Functions", size=(150, 50), closable=True)
 
-    d_ip_table = Dock("IP_Table", size=(100, 150), closable=True)
+    d_ip_table = Dock("IP_Table", size=(100, 200), closable=True)
 
     # LED CONTROLS
     d_led_all = Dock("All LED", size=(350, 40), closable=True)
@@ -286,7 +286,7 @@ if __name__ == '__main__':
 
     ip_button = QPushButton("SET SERVER IP")
 
-    ip_border_sync_nodes_button = QPushButton("FORCE BORDER MULTICAST SYNC")
+    ip_border_sync_nodes_button = QPushButton("FORCE MULTICAST SYNC + IP RETRIEVAL")
 
     ip_border_get_ip_tables_button = QPushButton("FORCE UPDATE IP TABLES")
 
@@ -298,9 +298,11 @@ if __name__ == '__main__':
 
     ip_list = pg.TreeWidget()
     ip_list.setWindowTitle('ip_table')
-    # ip_list.setColumnCount(2)
-    ip_list.headerItem().setText(1, "Node IPs")
-    ip_list.headerItem().setText(0, "UID")
+    ip_list.setColumnCount(3)
+    ip_list.headerItem().setText(3, "UID")
+    ip_list.headerItem().setText(2, "IP")
+    ip_list.headerItem().setText(1, "DESCRIPTION")
+    ip_list.headerItem().setText(0, "Type")
     # ip_list.header().setVisible(False)
 
     # ip_list = pg.QtGui.QTextList([])
@@ -368,8 +370,44 @@ if __name__ == '__main__':
         print("  CapViz : refreshing ip tables")
         global ip_list
         ip_list.clear()
-        for item in data.keys():
-            ip_list.addTopLevelItem(QtGui.QTreeWidgetItem([str(0),str(item)]))
+        # for item in data.keys():
+        #     ip_list.addTopLevelItem(QtGui.QTreeWidgetItem([str(0),str(item)]))
+
+        UID = np.array(list(data.keys()))
+        UID = UID.reshape(len(UID), 1)
+        items = np.array(list(data.values()))
+
+        # UID, IP, NODE_TYPE, EPOCH_OF_LAST_TRANSMISSION, DESCRIPTION
+        if(len(UID) == 0):
+            print("NO IP TABLE")
+            return
+
+        node_matrix = np.concatenate((UID, items), axis=1)
+
+        # find unique node types
+        unique_node_types = np.unique(node_matrix[:,2])
+
+        # sort matrix into dictionary
+        node_IPs = {}
+        node_UID = {}
+        top_level_items = {}
+        for unique_type in unique_node_types:
+            # get submatrix with only the information belonging to nodes of type unique_type
+            node_type_elements = node_matrix[np.where(node_matrix[:,2] == unique_type)]
+
+            # add unique node type to list
+            top_level_items[unique_type] = QtGui.QTreeWidgetItem([str(unique_type)])
+            ip_list.addTopLevelItem(top_level_items[unique_type])
+
+            # add unique node types information to list
+            index = 1
+            for idx in np.arange(0,len(node_type_elements)):
+                # top_level_items[unique_type].addChild(QtGui.QTreeWidgetItem([str(index),str(node_type_elements[idx, 0]), str(node_type_elements[idx, 1])]))
+                top_level_items[unique_type].addChild(QtGui.QTreeWidgetItem([str(index),str(node_type_elements[idx, 4]), str(node_type_elements[idx, 1]), str(node_type_elements[idx, 0])]))
+                index += 1
+
+        # for key, value in data.items():
+        #     ip_list.addTopLevelItem
 
     def connectToServer():
         global ip_textBox

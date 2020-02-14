@@ -7,7 +7,7 @@ import numpy as np
 def set_color(client, fixture, rgb):
     """
     fixture : int, representing the id of the fixture
-    rgb : [r, g, b], where r, g, and b are floats
+    rgb : [r, g, b], where r, g, and b are floats 
     """
     client.send_message("/sr{}/rgb".format(fixture),rgb)
 
