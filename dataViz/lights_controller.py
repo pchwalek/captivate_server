@@ -1,13 +1,12 @@
-from pythonosc import osc_message_builder, udp_client
+from pythonosc import  udp_client
 import argparse
 import time
-import numpy as np
 
 
 def set_color(client, fixture, rgb):
     """
     fixture : int, representing the id of the fixture
-    rgb : [r, g, b], where r, g, and b are floats 
+    rgb : [r, g, b], where r, g, and b are floats
     """
     client.send_message("/sr{}/rgb".format(fixture),rgb)
 
@@ -21,6 +20,10 @@ def init_client(ip, port):
 
 def set_lights_active(client):
     client.send_message("/set_active",1)
+    time.sleep(1)
+
+def set_lights_inactive(client):
+    client.send_message("/set_inactive",1)
     time.sleep(1)
 
 if(__name__ == "__main__"):

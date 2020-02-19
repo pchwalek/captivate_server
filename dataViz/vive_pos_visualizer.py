@@ -1,6 +1,6 @@
-from direct.directbase import DirectStart
-from panda3d.ode import OdeWorld, OdeBody, OdeMass
-from panda3d.core import Quat, LineSegs, Mat4
+# from direct.directbase import DirectStart
+# from panda3d.ode import OdeWorld, OdeBody, OdeMass
+
 import numpy as np
 import serial
 import struct
@@ -46,13 +46,9 @@ from lights_controller import *
 
 port_loc_vis    = 5556 # port for passing data to visualizer
 from struct import *
-server_queue = Queue()
 
-x = 0
-y = 0
-z = 0
-accuracy = 0
-time = 0
+
+
 
 # fixture_positions = np.array([[1.5, -3.0],
 #                               [1.5, -2.8],
@@ -104,12 +100,22 @@ fixture_positions = np.array([[1.3114,	1.4955,	0.8721],
 
 ])
 
-client = init_client("lights.media.mit.edu", 10002)
-set_lights_active(client)
-
 
 def update_fixtures(cur_pos):
+    global lights_client
+
     dp = fixture_positions[:,[0,2]] - cur_pos
+    distances = np.linalg.norm(dp, axis=1)
+    intensity = (0.5 - np.clip(distances, 0.0, 0.5)) / 0.5
+
+    for i in range(fixture_positions.shape[0]):
+        set_color(client, i + 1, colorsys.hsv_to_rgb(0.5, 1.0, intensity[i]))
+
+
+def update_fixtures_client(cur_pos, client):
+    global lights_client
+
+    dp = fixture_positions[:, [0, 2]] - cur_pos
     distances = np.linalg.norm(dp, axis=1)
     intensity = (0.5 - np.clip(distances, 0.0, 0.5)) / 0.5
 
@@ -172,72 +178,7 @@ def server_reader(queue):
 #         print(x_s, y_s, z_s)
 #     ser.close()
 #
-serial_thread = threading.Thread(target=server_reader, args=(server_queue,))
-serial_thread.start()
 
-# Create an accumulator to track the time since the sim
-# has been running
-deltaTimeAccumulator = 0.0
-# This stepSize makes the simulation run at 90 frames per second
-stepSize = 1.0 / 90.0
-
-x, y, z = (0, 0, 0)
-
-
-# Draw axes
-axes_segs = LineSegs("axes");
-# x axis
-axes_segs.setColor(217 / 255, 67 / 255, 56 / 255, 1)
-axes_segs.moveTo(-1000, 0, 0)
-axes_segs.drawTo(1000, 0, 0)
-
-# y axis
-axes_segs.setColor(56 / 255, 67 / 255, 217 / 255, 1)
-axes_segs.moveTo(0, -1000, 0)
-axes_segs.drawTo(0, 1000, 0)
-
-# z axis
-axes_segs.setColor(56 / 255, 217 / 255, 56 / 255, 1)
-axes_segs.moveTo(0, 0, -1000)
-axes_segs.drawTo(0, 0, 1000)
-segsnode = axes_segs.create(False);
-render.attachNewNode(segsnode);
-
-# Load the smiley model which will act as our iron ball
-sphere = loader.loadModel("smiley.egg")
-sphere.reparentTo(render)
-sphere.setPos(0, 0, 0)
-sphere.setColor(0.7, 0.4, 0.4)
-
-base_station_0 = loader.loadModel("cylinder.x")
-base_station_0.reparentTo(render)
-base_station_0.setHpr(0, 90, 0)
-base_station_0.setColor(0, 0, 0, 1)
-
-base_station_1 = loader.loadModel("cylinder.x")
-base_station_1.reparentTo(render)
-base_station_1.setHpr(0, 90, 0)
-base_station_1.setColor(0, 0, 0, 1)
-
-# b0 origin -2.104828 2.384802 -1.427797 matrix -0.496826 0.343897 -0.796805 0.008548 0.920031 0.391751 0.867808 0.187821 -0.460036
-# b1 origin 1.738303 2.430314 0.781285 matrix 0.285992 -0.253563 0.924075 0.040683 0.966697 0.252668 -0.957368 -0.034667 0.286784
-
-bs_0_x, bs_0_y, bs_0_z = [-2.104828, 2.384802, -1.427797]
-base_station_0.setPos(100 * bs_0_x, 100 * -bs_0_z, 100 * bs_0_y / 2)
-base_station_0.setScale(1, 100 * bs_0_y / 2, 1)
-
-bs_1_x, bs_1_y, bs_1_z = [1.738303,  2.430314, 0.781285]
-base_station_1.setPos(100 * bs_1_x, 100 * -bs_1_z, 100 * bs_1_y / 2)
-base_station_1.setScale(1, 100 * bs_1_y / 2, 1)
-
-mat = Mat4(camera.getMat())
-mat.invertInPlace()
-base.mouseInterfaceNode.setMat(mat)
-base.enableMouse()
-
-# base.camera.setPos(0, 0, 40)
-# base.camera.lookAt(0, 0, 0)
-base.trackball.node().setPos(0, 20, 0)
 
 
 
@@ -273,13 +214,92 @@ def simulationTask(task):
     # sphere.setPos(x, y, z)
     # return task.cont
 
+if(__name__ == "__main__"):
+    from panda3d.core import Quat, LineSegs, Mat4
 
-taskMgr.doMethodLater(0.05, simulationTask, "VIVE Position Visualizer")
+    x = 0
+    y = 0
+    z = 0
+    accuracy = 0
+    time = 0
 
-try:
-    base.run()
-except KeyboardInterrupt:
-    client.send_message("/set_inactive", 1)
+    server_queue = Queue()
+
+    client = init_client("lights.media.mit.edu", 10002)
+    set_lights_active(client)
+
+    serial_thread = threading.Thread(target=server_reader, args=(server_queue,))
+    serial_thread.start()
+
+    # Create an accumulator to track the time since the sim
+    # has been running
+    deltaTimeAccumulator = 0.0
+    # This stepSize makes the simulation run at 90 frames per second
+    stepSize = 1.0 / 90.0
+
+    x, y, z = (0, 0, 0)
+
+    # Draw axes
+    axes_segs = LineSegs("axes");
+    # x axis
+    axes_segs.setColor(217 / 255, 67 / 255, 56 / 255, 1)
+    axes_segs.moveTo(-1000, 0, 0)
+    axes_segs.drawTo(1000, 0, 0)
+
+    # y axis
+    axes_segs.setColor(56 / 255, 67 / 255, 217 / 255, 1)
+    axes_segs.moveTo(0, -1000, 0)
+    axes_segs.drawTo(0, 1000, 0)
+
+    # z axis
+    axes_segs.setColor(56 / 255, 217 / 255, 56 / 255, 1)
+    axes_segs.moveTo(0, 0, -1000)
+    axes_segs.drawTo(0, 0, 1000)
+    segsnode = axes_segs.create(False);
+    render.attachNewNode(segsnode);
+
+    # Load the smiley model which will act as our iron ball
+    sphere = loader.loadModel("smiley.egg")
+    sphere.reparentTo(render)
+    sphere.setPos(0, 0, 0)
+    sphere.setColor(0.7, 0.4, 0.4)
+
+    base_station_0 = loader.loadModel("cylinder.x")
+    base_station_0.reparentTo(render)
+    base_station_0.setHpr(0, 90, 0)
+    base_station_0.setColor(0, 0, 0, 1)
+
+    base_station_1 = loader.loadModel("cylinder.x")
+    base_station_1.reparentTo(render)
+    base_station_1.setHpr(0, 90, 0)
+    base_station_1.setColor(0, 0, 0, 1)
+
+    # b0 origin -2.104828 2.384802 -1.427797 matrix -0.496826 0.343897 -0.796805 0.008548 0.920031 0.391751 0.867808 0.187821 -0.460036
+    # b1 origin 1.738303 2.430314 0.781285 matrix 0.285992 -0.253563 0.924075 0.040683 0.966697 0.252668 -0.957368 -0.034667 0.286784
+
+    bs_0_x, bs_0_y, bs_0_z = [-2.104828, 2.384802, -1.427797]
+    base_station_0.setPos(100 * bs_0_x, 100 * -bs_0_z, 100 * bs_0_y / 2)
+    base_station_0.setScale(1, 100 * bs_0_y / 2, 1)
+
+    bs_1_x, bs_1_y, bs_1_z = [1.738303, 2.430314, 0.781285]
+    base_station_1.setPos(100 * bs_1_x, 100 * -bs_1_z, 100 * bs_1_y / 2)
+    base_station_1.setScale(1, 100 * bs_1_y / 2, 1)
+
+    mat = Mat4(camera.getMat())
+    mat.invertInPlace()
+    base.mouseInterfaceNode.setMat(mat)
+    base.enableMouse()
+
+    # base.camera.setPos(0, 0, 40)
+    # base.camera.lookAt(0, 0, 0)
+    base.trackball.node().setPos(0, 20, 0)
+
+    taskMgr.doMethodLater(0.05, simulationTask, "VIVE Position Visualizer")
+
+    try:
+        base.run()
+    except KeyboardInterrupt:
+        client.send_message("/set_inactive", 1)
 
 
 

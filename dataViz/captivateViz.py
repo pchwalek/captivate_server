@@ -192,6 +192,20 @@ if __name__ == '__main__':
                 #     break
         # if this is any other command message
 
+        elif special_type == "start_stream":
+            encrypted_msg = en.do_encrypt('start_stream')
+
+            # s.send(bytearray('set_led', 'utf-8'))
+            s.send(encrypted_msg)
+
+            # # crude way of resetting connection
+            # s.close()
+            # s.connect((host, port_control))
+
+            time.sleep(.1)
+
+            encrypted_msg = en.do_encrypt(message)
+            s.send(encrypted_msg)
         else:
             encrypted_msg = en.do_encrypt(message)
             s.send(encrypted_msg)
@@ -210,7 +224,10 @@ if __name__ == '__main__':
 
     d_inertial = Dock("Inertial Data", size=(150, 50), closable=True)
 
-    d_input_console = Dock("Server Functions", size=(150, 50), closable=True)
+    d_input_console = Dock("Server Functions", size=(75, 50), closable=True)
+
+    d_sensor_console = Dock("Sensor Activate", size=(75, 50), closable=True)
+
 
     d_ip_table = Dock("IP_Table", size=(100, 200), closable=True)
 
@@ -242,6 +259,9 @@ if __name__ == '__main__':
     #area.addDock(d2, 'right')  ## place d2 at right edge of dock area
     area.addDock(d_inertial, 'bottom', d1)  ## place d3 at bottom edge of d1
     area.addDock(d_input_console, 'bottom', d_inertial)
+
+    area.addDock(d_sensor_console, 'right', d_input_console)
+
     area.addDock(d_ip_table, 'right', d_inertial)
 
 
@@ -406,6 +426,9 @@ if __name__ == '__main__':
                 top_level_items[unique_type].addChild(QtGui.QTreeWidgetItem([str(index),str(node_type_elements[idx, 4]), str(node_type_elements[idx, 1]), str(node_type_elements[idx, 0])]))
                 index += 1
 
+        # expand all
+        ip_list.expandAll()
+
         # for key, value in data.items():
         #     ip_list.addTopLevelItem
 
@@ -498,6 +521,138 @@ if __name__ == '__main__':
     OF_state = 0
     recording_state = 0
     collection_state = 0
+
+    #  *******************************************************************  #
+    #  ***************** SYSTEM CONTROL WIDGET ***************************  #
+    #  *******************************************************************  #
+
+    ## Add widgets into each dock
+
+    ## first dock gets save/restore buttons
+    w_sensor = pg.LayoutWidget()
+    # label_0 = QtGui.QLabel(""" -- DockArea Example --
+    # This window has 6 Dock widgets in it. Each dock can be dragged
+    # by its title bar to occupy a different space within the window
+    # but note that one dock has its title bar hidden). Additionally,
+    # the borders between docks may be dragged to resize. Docks that are dragged on top
+    # of one another are stacked in a tabbed layout. Double-click a dock title
+    # bar to place it in its own window.
+    # """)
+    # label_changing = QtGui.QLabel("""
+    #         """)
+    # font = label_changing.font()
+    # font.setBold(True)
+    # label_changing.setFont(font)
+
+    label_pick_fcn = QtGui.QLabel(""" -- Pick one -- """)
+    label_pick_fcn.font().setBold(True)
+    loggingEnableBtn = QtGui.QCheckBox('Logging')
+    lightingRoomDemoEnableBtn = QtGui.QCheckBox('Lighting Lab Demo')
+
+    pick_fcn_group = QtGui.QButtonGroup()
+    pick_fcn_group.addButton(loggingEnableBtn)
+    pick_fcn_group.addButton(lightingRoomDemoEnableBtn)
+
+    label_enable_sensor = QtGui.QLabel(""" -- Enable -- """)
+    label_enable_sensor.font().setBold(True)
+    blinkEnableBtn = QtGui.QCheckBox('Blink')
+    tempEnableBtn = QtGui.QCheckBox('Temperature')
+    posEnableBtn = QtGui.QCheckBox('Position')
+    inertialEnableBtn = QtGui.QCheckBox('Inertial')
+
+    # restoreBtn.setEnabled(False)
+    # w_sensor.addWidget(label_0, row=0, col=0)
+    # w_sensor.addWidget(saveBtn, row=1, col=0)
+
+    w_sensor.addWidget(label_pick_fcn, row=0, col=0)
+    w_sensor.addWidget(loggingEnableBtn, row=1, col=0)
+    w_sensor.addWidget(lightingRoomDemoEnableBtn, row=2, col=0)
+
+    w_sensor.addWidget(label_enable_sensor, row=3, col=0)
+    w_sensor.addWidget(blinkEnableBtn, row=4, col=0)
+    w_sensor.addWidget(tempEnableBtn, row=5, col=0)
+    w_sensor.addWidget(posEnableBtn, row=6, col=0)
+    w_sensor.addWidget(inertialEnableBtn, row=7, col=0)
+
+
+    system_function = 0
+    log_status = 0
+    blink_sensing_enable = 0
+    temp_sensing_enable = 0
+    pos_sensing_enable = 0
+    inertial_sensing_enable = 0
+
+    def system_fcn_state():
+        global system_function, log_status
+
+        if loggingEnableBtn.isChecked():
+            system_function = 1
+            log_status = 1
+
+            posEnableBtn.setEnabled(True)
+            tempEnableBtn.setEnabled(True)
+            inertialEnableBtn.setEnabled(True)
+            blinkEnableBtn.setEnabled(True)
+
+            posEnableBtn.setChecked(False)
+            tempEnableBtn.setChecked(False)
+            inertialEnableBtn.setChecked(False)
+            blinkEnableBtn.setChecked(False)
+
+
+        elif lightingRoomDemoEnableBtn.isChecked():
+            system_function = 2
+            log_status = 0
+
+            posEnableBtn.setChecked(True)
+            posEnableBtn.setEnabled(False)
+            tempEnableBtn.setChecked(False)
+            tempEnableBtn.setEnabled(False)
+            inertialEnableBtn.setChecked(False)
+            inertialEnableBtn.setEnabled(False)
+            blinkEnableBtn.setChecked(False)
+            blinkEnableBtn.setEnabled(False)
+
+        else:
+            system_function = 0
+            log_status = 0
+
+    def sensor_enable_state():
+        global blink_sensing_enable, temp_sensing_enable, pos_sensing_enable, inertial_sensing_enable
+
+        if blinkEnableBtn.isChecked():
+            blink_sensing_enable = 1
+        else:
+            blink_sensing_enable = 0
+
+        if tempEnableBtn.isChecked():
+            temp_sensing_enable = 1
+        else:
+            temp_sensing_enable = 0
+
+        if posEnableBtn.isChecked():
+            pos_sensing_enable = 1
+        else:
+            pos_sensing_enable = 0
+
+        if inertialEnableBtn.isChecked():
+            inertial_sensing_enable = 1
+        else:
+            inertial_sensing_enable = 0
+
+        print("state change")
+
+    loggingEnableBtn.stateChanged.connect(system_fcn_state)
+    lightingRoomDemoEnableBtn.stateChanged.connect(system_fcn_state)
+
+    blinkEnableBtn.stateChanged.connect(sensor_enable_state)
+    tempEnableBtn.stateChanged.connect(sensor_enable_state)
+    posEnableBtn.stateChanged.connect(sensor_enable_state)
+    inertialEnableBtn.stateChanged.connect(sensor_enable_state)
+
+    d_sensor_console.addWidget(w_sensor)
+
+
 
     #  *******************************************************************  #
     #  ***************** LED CONTROL WIDGET ******************************  #
@@ -653,17 +808,21 @@ if __name__ == '__main__':
 
     def startStream():
         global system_semaphore, blink_queue, temp_queue, pos_queue, inertial_queue, timer, data_collector_thread
+        global system_function, blink_sensing_enable, temp_sensing_enable, pos_sensing_enable, inertial_sensing_enable, log_status
 
         if data_collector_thread.is_alive():
             print(" CapViz : stream is already active")
         else:
 
+            data = pack('BBBBBB', system_function, log_status, blink_sensing_enable, temp_sensing_enable, inertial_sensing_enable, pos_sensing_enable)
 
             # tell Coap server where to send data to
             sendControlMessage(socket.gethostbyname(socket.gethostname()), 'set_data_ip')
 
-            # tell Coap server to start streaming
-            sendControlMessage('start_stream')
+            # start stream
+            sendControlMessage(data, 'start_stream')
+
+            print("sending sys state data")
 
             # # start graph update time
             # timer.start(500)
