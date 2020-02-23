@@ -151,6 +151,21 @@ if __name__ == '__main__':
             encrypted_msg = en.do_encrypt(message)
             s.send(encrypted_msg)
 
+        elif special_type == "tare_system":
+            encrypted_msg = en.do_encrypt("tare_system")
+
+            # s.send(bytearray('set_led', 'utf-8'))
+            s.send(encrypted_msg)
+
+            # # crude way of resetting connection
+            # s.close()
+            # s.connect((host, port_control))
+
+            time.sleep(.1)
+
+            encrypted_msg = en.do_encrypt(message)
+            s.send(encrypted_msg)
+
         elif special_type == "set_data_ip":
             encrypted_msg = en.do_encrypt('set_data_ip')
 
@@ -549,6 +564,10 @@ if __name__ == '__main__':
     loggingEnableBtn = QtGui.QCheckBox('Logging')
     lightingRoomDemoEnableBtn = QtGui.QCheckBox('Lighting Lab Demo')
 
+    sendTareBtn = QtGui.QPushButton('Tare System')
+
+    dongleAsBorderRouterBtn = QtGui.QCheckBox('Dongle As BR')
+
     pick_fcn_group = QtGui.QButtonGroup()
     pick_fcn_group.addButton(loggingEnableBtn)
     pick_fcn_group.addButton(lightingRoomDemoEnableBtn)
@@ -567,12 +586,14 @@ if __name__ == '__main__':
     w_sensor.addWidget(label_pick_fcn, row=0, col=0)
     w_sensor.addWidget(loggingEnableBtn, row=1, col=0)
     w_sensor.addWidget(lightingRoomDemoEnableBtn, row=2, col=0)
+    w_sensor.addWidget(sendTareBtn, row=3, col=0)
+    w_sensor.addWidget(dongleAsBorderRouterBtn, row=4, col=0)
 
-    w_sensor.addWidget(label_enable_sensor, row=3, col=0)
-    w_sensor.addWidget(blinkEnableBtn, row=4, col=0)
-    w_sensor.addWidget(tempEnableBtn, row=5, col=0)
-    w_sensor.addWidget(posEnableBtn, row=6, col=0)
-    w_sensor.addWidget(inertialEnableBtn, row=7, col=0)
+    w_sensor.addWidget(label_enable_sensor, row=5, col=0)
+    w_sensor.addWidget(blinkEnableBtn, row=6, col=0)
+    w_sensor.addWidget(tempEnableBtn, row=7, col=0)
+    w_sensor.addWidget(posEnableBtn, row=8, col=0)
+    w_sensor.addWidget(inertialEnableBtn, row=9, col=0)
 
 
     system_function = 0
@@ -581,6 +602,21 @@ if __name__ == '__main__':
     temp_sensing_enable = 0
     pos_sensing_enable = 0
     inertial_sensing_enable = 0
+
+    dongle_br_enable = 0
+
+    def sendTareCommand():
+
+        data = pack('BBBBBB', 3, 3, 0, 0, 0, 0)
+
+        # start stream
+        sendControlMessage(data, 'tare_system')
+
+        print("tare the system")
+
+        time.sleep(.5)  # give time for semaphore taken to be registered (sometimes its not immediate)
+
+    sendTareBtn.clicked.connect(sendTareCommand)
 
     def system_fcn_state():
         global system_function, log_status
@@ -642,8 +678,18 @@ if __name__ == '__main__':
 
         print("state change")
 
+    def enable_dongle_br():
+        global dongle_br_enable
+
+        if dongleAsBorderRouterBtn.isChecked():
+            dongle_br_enable = 1
+        else:
+            dongle_br_enable = 0
+
     loggingEnableBtn.stateChanged.connect(system_fcn_state)
     lightingRoomDemoEnableBtn.stateChanged.connect(system_fcn_state)
+
+    dongleAsBorderRouterBtn.stateChanged.connect(enable_dongle_br)
 
     blinkEnableBtn.stateChanged.connect(sensor_enable_state)
     tempEnableBtn.stateChanged.connect(sensor_enable_state)
@@ -810,30 +856,58 @@ if __name__ == '__main__':
         global system_semaphore, blink_queue, temp_queue, pos_queue, inertial_queue, timer, data_collector_thread
         global system_function, blink_sensing_enable, temp_sensing_enable, pos_sensing_enable, inertial_sensing_enable, log_status
 
-        if data_collector_thread.is_alive():
-            print(" CapViz : stream is already active")
+        if(dongle_br_enable):
+            if data_collector_thread.is_alive():
+                print(" CapViz : stream is already active")
+            else:
+
+                # data = pack('BBBBBB', system_function, log_status, blink_sensing_enable, temp_sensing_enable,
+                #             inertial_sensing_enable, pos_sensing_enable)
+
+                # # tell Coap server where to send data to
+                # sendControlMessage(socket.gethostbyname(socket.gethostname()), 'set_data_ip')
+                #
+                # # start stream
+                # sendControlMessage(data, 'start_stream')
+
+                # print("sending sys state data")
+
+                # # start graph update time
+                # timer.start(500)
+
+                # grab semaphore and start running data collector
+                # system_semaphore = threading.Semaphore()
+                system_semaphore.acquire(blocking=False)
+                time.sleep(.5)  # give time for semaphore taken to be registered (sometimes its not immediate)
+                # start_new_thread(runDataCollector, (system_semaphore, blink_queue, temp_queue, pos_queue, inertial_queue))
+                data_collector_thread = threading.Thread(target=runDataCollector, args=(
+                system_semaphore, blink_queue, temp_queue, pos_queue, inertial_queue, dongle_br_enable))
+                data_collector_thread.start()
         else:
+            if data_collector_thread.is_alive():
+                print(" CapViz : stream is already active")
+            else:
 
-            data = pack('BBBBBB', system_function, log_status, blink_sensing_enable, temp_sensing_enable, inertial_sensing_enable, pos_sensing_enable)
+                data = pack('BBBBBB', system_function, log_status, blink_sensing_enable, temp_sensing_enable, inertial_sensing_enable, pos_sensing_enable)
 
-            # tell Coap server where to send data to
-            sendControlMessage(socket.gethostbyname(socket.gethostname()), 'set_data_ip')
+                # tell Coap server where to send data to
+                sendControlMessage(socket.gethostbyname(socket.gethostname()), 'set_data_ip')
 
-            # start stream
-            sendControlMessage(data, 'start_stream')
+                # start stream
+                sendControlMessage(data, 'start_stream')
 
-            print("sending sys state data")
+                print("sending sys state data")
 
-            # # start graph update time
-            # timer.start(500)
+                # # start graph update time
+                # timer.start(500)
 
-            # grab semaphore and start running data collector
-            # system_semaphore = threading.Semaphore()
-            system_semaphore.acquire(blocking=False)
-            time.sleep(.5) # give time for semaphore taken to be registered (sometimes its not immediate)
-            #start_new_thread(runDataCollector, (system_semaphore, blink_queue, temp_queue, pos_queue, inertial_queue))
-            data_collector_thread = threading.Thread(target=runDataCollector, args=(system_semaphore, blink_queue, temp_queue, pos_queue, inertial_queue,))
-            data_collector_thread.start()
+                # grab semaphore and start running data collector
+                # system_semaphore = threading.Semaphore()
+                system_semaphore.acquire(blocking=False)
+                time.sleep(.5) # give time for semaphore taken to be registered (sometimes its not immediate)
+                #start_new_thread(runDataCollector, (system_semaphore, blink_queue, temp_queue, pos_queue, inertial_queue))
+                data_collector_thread = threading.Thread(target=runDataCollector, args=(system_semaphore, blink_queue, temp_queue, pos_queue, inertial_queue,))
+                data_collector_thread.start()
 
     # queues to update plots
     blink_queue = Queue()
@@ -1440,6 +1514,8 @@ if __name__ == '__main__':
             if (quat_i == 0 and quat_j == 0 and quat_k == 0 ):
                 continue
 
+            send_imu_to_vis(quat_real, quat_i, quat_j, quat_k)
+
             # print(activity_class)
 
             line_quat_real.setText(' ' + str(quat_real))
@@ -1470,6 +1546,23 @@ if __name__ == '__main__':
 
             QtGui.QApplication.processEvents()
 
+    def send_imu_to_vis(quat_w,quat_i,quat_j,quat_k):
+
+        string_quat = str('w') + str(quat_w) + str('w')
+        string_quat += str('a') + str(quat_i) + str('a')
+        string_quat += str('b') + str(quat_j) + str('b')
+        string_quat += str('c') + str(quat_k) + str('c')
+
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            try:
+                s.connect(('localhost', 5005))
+                # packet = pack("fff", x, y, z)
+                s.sendall(string_quat.encode())
+            except socket.error as msg:
+                print("Caught exception socket.error : " + str(msg))
+            finally:
+                s.close()
+
     def send_loc_to_vis(x, y, z, accuracy, time):
         # as a client, tell COAP server to tell glasses to start streaming
         # host = socket.gethostname()
@@ -1486,6 +1579,7 @@ if __name__ == '__main__':
             s.connect(('localhost', port_loc_vis))
             packet = pack("fff", x, y, z)
             s.sendall(packet)
+            s.close()
             # data = s.recv(1024)
 
         # x = 2

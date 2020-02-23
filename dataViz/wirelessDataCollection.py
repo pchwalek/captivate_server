@@ -217,6 +217,7 @@ for _,val in captivate_header_sizes.items():
 Save_Location = "C:/dev/glasses/dataViz/data/"
 Filename = "captivate_msg_log"
 Filetype = ".csv"
+SAVE_CHECKPOINT_CNT=100
 
 
 class CaptivateData():
@@ -246,6 +247,7 @@ class CaptivateData():
         self.save_location = Save_Location
 
         self.start_point = 0
+
 
         # queues where latest messages get passed to update plots
         self.blink_queue = 0
@@ -279,10 +281,23 @@ class CaptivateData():
         for key, val in self.sensors.items():
             self.sensors[key].add_data(sample)
 
+        if self.data.shape[0] > SAVE_CHECKPOINT_CNT:
+            self.checkpoint_save_data()
+
+    def checkpoint_save_data(self):
+        self.data.iloc[self.start_point:].to_csv(self.save_location + Filename + str(int(self.start_time)) + Filetype,
+                                                 mode='a', index=False)
+
+        for key, val in self.sensors.items():
+            self.sensors[key].checkpoint_save_data()
+
+        # clear dataframe
+        self.data.drop(self.data.index, inplace=True)
+
     def save_data(self):
         #self.openface_data.to_csv(self.save_location + Filename + str(int(self.start_time)) + Filetype, index=False)
         print(self.save_location + Filename + str(int(self.start_time)) + Filetype)
-        self.data.iloc[self.start_point:].to_csv(self.save_location + Filename + str(int(self.start_time)) + Filetype, index=False)
+        self.data.iloc[self.start_point:].to_csv(self.save_location + Filename + str(int(self.start_time)) + Filetype, mode='a', index=False)
 
         for key, val in self.sensors.items():
             self.sensors[key].save_data()
@@ -360,6 +375,13 @@ class BlinkData():
 
         return
 
+    def checkpoint_save_data(self):
+        self.data.iloc[self.start_point:].to_csv(self.save_location + Filename + str(int(self.start_time)) + Filetype,
+                                                 mode='a', index=False)
+
+        # clear dataframe
+        self.data.drop(self.data.index, inplace=True)
+
     def add_data(self, msg_unpacked):
         # create matrix of data with columns : blink sample , tick_ms that sample was taken , approx. system epoch time
 
@@ -391,7 +413,7 @@ class BlinkData():
         #self.openface_data.to_csv(self.save_location + Filename + str(int(self.start_time)) + Filetype, index=False)
         print("  CAPTIVATE LOGGER : saving blink data")
         print("  CAPTIVATE LOGGER : blink file : " + self.save_location + self.filename + str(int(self.start_time)) + Filetype)
-        self.data.iloc[self.start_point:].to_csv(self.save_location + self.filename + str(int(self.start_time)) + Filetype, index=False)
+        self.data.iloc[self.start_point:].to_csv(self.save_location + self.filename + str(int(self.start_time)) + Filetype, mode='a', index=False)
 
     def set_save_location(self, new_directory):
         print(self.save_location)
@@ -447,6 +469,13 @@ class ThermData():
 
         return
 
+    def checkpoint_save_data(self):
+        self.data.iloc[self.start_point:].to_csv(self.save_location + Filename + str(int(self.start_time)) + Filetype,
+                                                 mode='a', index=False)
+
+        # clear dataframe
+        self.data.drop(self.data.index, inplace=True)
+
     def add_data(self, msg_unpacked):
         # create matrix of data with columns : blink sample , tick_ms that sample was taken , approx. system epoch time
 
@@ -486,7 +515,7 @@ class ThermData():
         #self.openface_data.to_csv(self.save_location + Filename + str(int(self.start_time)) + Filetype, index=False)
         print("  CAPTIVATE LOGGER : saving temp data")
         print("  CAPTIVATE LOGGER : thermo file : " + self.save_location + self.filename + str(int(self.start_time)) + Filetype)
-        self.data.iloc[self.start_point:].to_csv(self.save_location + self.filename + str(int(self.start_time)) + Filetype, index=False)
+        self.data.iloc[self.start_point:].to_csv(self.save_location + self.filename + str(int(self.start_time)) + Filetype,mode='a',  index=False)
 
     def set_save_location(self, new_directory):
         print(self.save_location)
@@ -542,6 +571,13 @@ class InertialData():
 
         return
 
+    def checkpoint_save_data(self):
+        self.data.iloc[self.start_point:].to_csv(self.save_location + Filename + str(int(self.start_time)) + Filetype,
+                                                 mode='a', index=False)
+
+        # clear dataframe
+        self.data.drop(self.data.index, inplace=True)
+
     def add_data(self, msg_unpacked):
         # create matrix of data with columns : blink sample , tick_ms that sample was taken , approx. system epoch time
 
@@ -572,6 +608,8 @@ class InertialData():
         # (6)... send to visualizer
         activity_unpacked = array.array('B', msg_unpacked['activityConfidence']).tolist()
 
+        print(msg_unpacked['quatRadianAccuracy'])
+
         self.inertial_queue.put(np.array([msg_unpacked['quatReal'],
                                           msg_unpacked['quatI'],
                                           msg_unpacked['quatJ'],
@@ -582,7 +620,7 @@ class InertialData():
         #self.openface_data.to_csv(self.save_location + Filename + str(int(self.start_time)) + Filetype, index=False)
         print("  CAPTIVATE LOGGER : saving inertial data")
         print("  CAPTIVATE LOGGER : intertial file : " + self.save_location + self.filename + str(int(self.start_time)) + Filetype)
-        self.data.iloc[self.start_point:].to_csv(self.save_location + self.filename + str(int(self.start_time)) + Filetype, index=False)
+        self.data.iloc[self.start_point:].to_csv(self.save_location + self.filename + str(int(self.start_time)) + Filetype,mode='a',  index=False)
 
     def set_save_location(self, new_directory):
         print(self.save_location)
@@ -638,6 +676,13 @@ class PosData():
 
         return
 
+    def checkpoint_save_data(self):
+        self.data.iloc[self.start_point:].to_csv(self.save_location + Filename + str(int(self.start_time)) + Filetype,
+                                                 mode='a', index=False)
+
+        # clear dataframe
+        self.data.drop(self.data.index, inplace=True)
+
     def add_data(self, msg_unpacked):
         # create matrix of data with columns : blink sample , tick_ms that sample was taken , approx. system epoch time
 
@@ -677,7 +722,7 @@ class PosData():
         #self.openface_data.to_csv(self.save_location + Filename + str(int(self.start_time)) + Filetype, index=False)
         print("  CAPTIVATE LOGGER : saving position data")
         print("  CAPTIVATE LOGGER : position file : " + self.save_location + self.filename + str(int(self.start_time)) + Filetype)
-        self.data.iloc[self.start_point:].to_csv(self.save_location + self.filename + str(int(self.start_time)) + Filetype, index=False)
+        self.data.iloc[self.start_point:].to_csv(self.save_location + self.filename + str(int(self.start_time)) + Filetype, mode='a', index=False)
 
     def set_save_location(self, new_directory):
         print(self.save_location)
@@ -690,7 +735,7 @@ class PosData():
         self.start_point = len(self.openface_data.index)
 
 # thread fuction
-def msgReceiveThread(c, msg_queue):
+def msgReceiveThread(c, msg_queue, enable_dongle_br=0):
 
     global captivate_labels_to_string
 
@@ -709,9 +754,13 @@ def msgReceiveThread(c, msg_queue):
             # msg_unpacked = unpack(captive_total_header_types, data)
             # print("received something")
             msg_unpacked = namedtuple('msg_unpacked', captivate_labels_to_string)
-            data_decrypted = en.do_decrypt(data)
-            # print(len(data_decrypted))
-            msg_unpacked = msg_unpacked._make(unpack(captive_total_header_types, data_decrypted))
+
+            if(enable_dongle_br==0):
+                data_decrypted = en.do_decrypt(data)
+                # print(len(data_decrypted))
+                msg_unpacked = msg_unpacked._make(unpack(captive_total_header_types, data_decrypted))
+            else:
+                msg_unpacked = msg_unpacked._make(unpack(captive_total_header_types, data))
             msg_queue.put(msg_unpacked._asdict(), block=False, timeout=0)
             #print(data)
 
@@ -754,10 +803,7 @@ def msgParser(msg_queue, msgParserSem, blink_queue, temp_queue, pos_queue, inert
 
 
 
-def runDataCollector(system_sem, blink_queue, temp_queue, pos_queue, inertial_queue, queue_log = 0, alert_queue = 0):
-
-
-
+def runDataCollector(system_sem, blink_queue, temp_queue, pos_queue, inertial_queue, enable_dongle_br, queue_log = 0, alert_queue = 0):
 
 
     # try:
@@ -777,12 +823,15 @@ def runDataCollector(system_sem, blink_queue, temp_queue, pos_queue, inertial_qu
 
     # bind socket to start server
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.bind((host, port))
+    if(enable_dongle_br==0):
+        s.bind((host, port))
+    else:
+        s.bind(('localhost', port))
     s.settimeout(1)
     timeout_counter = 0
 
     # start queue for message passing between threads
-    msg_queue = Queue(maxsize=50)
+    msg_queue = Queue(maxsize=400)
 
     # start message parser thread
     msgParserSem.acquire(blocking=False)
@@ -806,7 +855,7 @@ def runDataCollector(system_sem, blink_queue, temp_queue, pos_queue, inertial_qu
             # print('  CAPTIVATE LOGGER : Connected to :', addr[0], ':', addr[1])
 
             # Start a new thread and return its identifier
-            receiver_thread = threading.Thread(target=msgReceiveThread, args=(c, msg_queue, ))
+            receiver_thread = threading.Thread(target=msgReceiveThread, args=(c, msg_queue, enable_dongle_br,))
             receiver_thread.start()
 
             # user will free a semaphore if "stop stream" is selected in the console

@@ -100,6 +100,10 @@ def networkAddrHandler(import_queue, export_queue, reset_sem, pass_table_sem):
 
             continue
 
+        except:
+            print(" network address handler received unexpected exception : " + str(sys.exc_info()[0]))
+            continue
+
 def postMessageNodeThread(active_threads_sem, ip_address, coap_path, message, port, timeout=5, no_response=True):
 
     global networkList
@@ -273,6 +277,9 @@ def sensorDataReceived(ip_data_queue, data_queue, addr_queue, port, data_collect
                     print("  COAP Server : closing data export thread")
                     break
                 continue
+
+        finally:
+            s.close()
 
 class CaptivatesLoggerResource(Resource):
     def __init__(self, data_queue, name="CaptivatesLoggerResource", coap_server=None):
@@ -782,6 +789,16 @@ def msgReceiveThread(c, ip_data_queue, pass_ip_table_sem):
                 ip_data_queue.put(msg_unpacked)
 
             elif prev_message == "start_stream":
+
+                # todo: how to pick ip address (is it the visualizer??)
+                msg_unpacked = ""
+                prev_message = msg_unpacked
+
+                print("  COAP Server : starting stream on : " + str(msg_unpacked))
+
+                postMessageIndividualNodes(["FF03::1"], "togLog", data, port=5683, timeout=TIMEOUT_ON_MSG)
+
+            elif prev_message == "tare_system":
 
                 # todo: how to pick ip address (is it the visualizer??)
                 msg_unpacked = ""

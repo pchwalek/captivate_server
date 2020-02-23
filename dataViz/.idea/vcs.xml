@@ -3,5 +3,6 @@
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$/.." vcs="Git" />
     <mapping directory="$PROJECT_DIR$/CoAPthon3" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/PyTeapot-Quaternion-Euler-cube-rotation" vcs="Git" />
   </component>
 </project>
