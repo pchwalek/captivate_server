@@ -53,7 +53,7 @@ def ipaddressToByteString(addr):
 
 def syncMessage(epoch, send_IP=0):
 
-    ip = ipaddressToByteString(ni.ifaddresses('wpan0')[10][0]['addr'])
+    ip = ipaddressToByteString(ni.ifaddresses('wpan0')[10][1]['addr'])
     epoch_string = pack('q', epoch)
 
     # print(ip)
@@ -69,14 +69,14 @@ def networkAddrHandler(import_queue, export_queue, reset_sem, pass_table_sem):
 
     while True:
         try:
-            ip_addr, node_type, description, UID = import_queue.get(timeout=1)
+            ip_addr, node_type, description, UID, RLOC = import_queue.get(timeout=1)
 
             print("  got ip to update table : " + str(UID))
             # print("  current table : " + str(networkList))
 
             # associate a timestamp of when ip address was added
             #   note: if it already exists, timestamp is refreshed
-            networkList[UID] = (ip_addr, node_type, time.time(), description)
+            networkList[UID] = (ip_addr, node_type, time.time(), description, RLOC)
 
             print("  new table : " + str(networkList))
             # print(networkList)
@@ -232,8 +232,9 @@ def sensorDataReceived(ip_data_queue, data_queue, addr_queue, port, data_collect
             # grab data packet if available
             sender_addr, packet = data_queue.get(timeout=10)
             print(" DEBUG: grabbed from queue")
-            # check if IP is in list of known (if not, add)
-            addr_queue.put((sender_addr, 0))
+
+            # # check if IP is in list of known (if not, add)
+            # addr_queue.put((sender_addr, 0))
 
             # todo: can make this more efficient by leaving socket open and making this a thread
             # define socket
@@ -391,10 +392,10 @@ class TimeSyncResource(Resource):
         print("  COAP Server : NODE SENT IP TO BORDER : " + str(request.source[0]))
         # print("     IP: " + str(request.source[0]))
         # print("     Payload: " + str(request.payload))
-        node_type, description, UID = unpack('12s12s8s', request.payload)
+        node_type, description, UID, RLOC = unpack('12s12s8sH', request.payload)
         # UID = int.fromt_bytes(UID, byteorder='little')
         # print("     UID: " + str(UID))
-        self.ip_importer.put([str(request.source[0]), node_type.decode().rstrip('\x00'), description.decode().rstrip('\x00'), UID])
+        self.ip_importer.put([str(request.source[0]), node_type.decode().rstrip('\x00'), description.decode().rstrip('\x00'), UID, RLOC])
 
         # # grab unix time
         # epoch = long(time.time())
@@ -479,11 +480,11 @@ class NodeInfoResource(Resource):
     def render_PUT(self, request):
         self.edit_resource(request)
         print("  COAP Server : NODE SENT IP TO BORDER : " + str(request.source[0]))
-        # print("     IP: " + str(request.source[0]))
-        # print("     Payload: " + str(request.payload))
-        node_type, description, UID = unpack('12s12sq', request.payload)
+        print("     IP: " + str(request.source[0]))
+        print("     Payload: " + str(request.payload))
+        node_type, description, UID,  RLOC= unpack('12s12sqH', request.payload)
         # print("     UID: " + str(UID))
-        self.ip_importer.put([str(request.source[0]), node_type.decode().rstrip('\x00'), description.decode().rstrip('\x00'), UID])
+        self.ip_importer.put([str(request.source[0]), node_type.decode().rstrip('\x00'), description.decode().rstrip('\x00'), UID, RLOC])
 
         #
         # # grab unix time
@@ -995,7 +996,7 @@ def staleAddressCheck():
     #               epoch       = 32-bit integer for when IP address was received
 
     # run through IP table and check if any IPs have gone stale
-    message = pack('50sl', str(ni.ifaddresses('wpan0')[10][0]['addr']).encode(), currentTime)
+    message = pack('50sl', str(ni.ifaddresses('wpan0')[10][1]['addr']).encode(), currentTime)
     expired_IPs = []
     for key, value in networkList.items():
         if abs(currentTime - value[2]) < IP_STALE_THRESHOLD:
@@ -1016,7 +1017,7 @@ def coapServer():
     # IP address and port of server
     # ip = "0.0.0.0"
     try:
-        ip = str(ni.ifaddresses('wpan0')[10][0]['addr'])
+        ip = str(ni.ifaddresses('wpan0')[10][1]['addr'])
     except IndexError:
         print("  COAP Server : ERROR : No \"wpan0\" IP detected!")
         print("  COAP Server : are you running OpenThread border router?")

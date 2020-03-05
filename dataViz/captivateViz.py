@@ -333,9 +333,10 @@ if __name__ == '__main__':
 
     ip_list = pg.TreeWidget()
     ip_list.setWindowTitle('ip_table')
-    ip_list.setColumnCount(3)
-    ip_list.headerItem().setText(3, "UID")
-    ip_list.headerItem().setText(2, "IP")
+    ip_list.setColumnCount(4)
+    ip_list.headerItem().setText(4, "UID")
+    ip_list.headerItem().setText(3, "IP")
+    ip_list.headerItem().setText(2, "RLOC")
     ip_list.headerItem().setText(1, "DESCRIPTION")
     ip_list.headerItem().setText(0, "Type")
     # ip_list.header().setVisible(False)
@@ -412,7 +413,7 @@ if __name__ == '__main__':
         UID = UID.reshape(len(UID), 1)
         items = np.array(list(data.values()))
 
-        # UID, IP, NODE_TYPE, EPOCH_OF_LAST_TRANSMISSION, DESCRIPTION
+        # UID, IP, NODE_TYPE, EPOCH_OF_LAST_TRANSMISSION, DESCRIPTION, RLOC
         if(len(UID) == 0):
             print("NO IP TABLE")
             return
@@ -438,7 +439,7 @@ if __name__ == '__main__':
             index = 1
             for idx in np.arange(0,len(node_type_elements)):
                 # top_level_items[unique_type].addChild(QtGui.QTreeWidgetItem([str(index),str(node_type_elements[idx, 0]), str(node_type_elements[idx, 1])]))
-                top_level_items[unique_type].addChild(QtGui.QTreeWidgetItem([str(index),str(node_type_elements[idx, 4]), str(node_type_elements[idx, 1]), str(node_type_elements[idx, 0])]))
+                top_level_items[unique_type].addChild(QtGui.QTreeWidgetItem([str(index),str(node_type_elements[idx, 4]), str(hex(int(node_type_elements[idx, 5]))[2:]), str(node_type_elements[idx, 1]), str(hex(int(node_type_elements[idx, 0]))[2:])]))
                 index += 1
 
         # expand all
@@ -490,6 +491,8 @@ if __name__ == '__main__':
     """)
     saveBtn = QtGui.QPushButton('Save dock state')
     restoreBtn = QtGui.QPushButton('Restore dock state')
+    disableVizBtn = QtGui.QCheckBox('Disable Data Visualization')
+
 
     label_1 = QtGui.QLabel(""" -- Sensing Control -- 
         """)
@@ -510,6 +513,7 @@ if __name__ == '__main__':
     w1.addWidget(label_0, row=0, col=0)
     w1.addWidget(saveBtn, row=1, col=0)
     w1.addWidget(restoreBtn, row=2, col=0)
+    w1.addWidget(disableVizBtn, row=3, col=1)
 
     w1.addWidget(label_1, row=0, col=1)
     w1.addWidget(startStream_Btn, row=1, col=1)
@@ -520,6 +524,9 @@ if __name__ == '__main__':
     w1.addWidget(stopLog_Btn, row=2, col=2)
 
     w1.addWidget(label_changing, row=3, col=0)
+
+    stopStream_Btn.setEnabled(False)
+    stopLog_Btn.setEnabled(False)
 
     # w1.addWidget(startEEG_Btn, row=3, col=1)
     # w1.addWidget(label_2, row=0, col=2)
@@ -686,6 +693,18 @@ if __name__ == '__main__':
         else:
             dongle_br_enable = 0
 
+
+    disable_viz = 0
+    def disable_viz_fcn():
+        global disable_viz, disableVizBtn
+
+        if disableVizBtn.isChecked():
+            disable_viz = 1
+            print("  CapViz : Disabling data visualization")
+        else:
+            disable_viz = 0
+            print("  CapViz : Enabling data visualization")
+
     loggingEnableBtn.stateChanged.connect(system_fcn_state)
     lightingRoomDemoEnableBtn.stateChanged.connect(system_fcn_state)
 
@@ -698,7 +717,7 @@ if __name__ == '__main__':
 
     d_sensor_console.addWidget(w_sensor)
 
-
+    disableVizBtn.stateChanged.connect(disable_viz_fcn)
 
     #  *******************************************************************  #
     #  ***************** LED CONTROL WIDGET ******************************  #
@@ -856,6 +875,8 @@ if __name__ == '__main__':
         global system_semaphore, blink_queue, temp_queue, pos_queue, inertial_queue, timer, data_collector_thread
         global system_function, blink_sensing_enable, temp_sensing_enable, pos_sensing_enable, inertial_sensing_enable, log_status
 
+        global startStream_Btn, startLog_Btn, stopStream_Btn, stopLog_Btn
+
         if(dongle_br_enable):
             if data_collector_thread.is_alive():
                 print(" CapViz : stream is already active")
@@ -906,8 +927,15 @@ if __name__ == '__main__':
                 system_semaphore.acquire(blocking=False)
                 time.sleep(.5) # give time for semaphore taken to be registered (sometimes its not immediate)
                 #start_new_thread(runDataCollector, (system_semaphore, blink_queue, temp_queue, pos_queue, inertial_queue))
-                data_collector_thread = threading.Thread(target=runDataCollector, args=(system_semaphore, blink_queue, temp_queue, pos_queue, inertial_queue,))
+                data_collector_thread = threading.Thread(target=runDataCollector, args=(system_semaphore, blink_queue, temp_queue, pos_queue, inertial_queue,dongle_br_enable,))
                 data_collector_thread.start()
+
+
+        startStream_Btn.setEnabled(False)
+        startLog_Btn.setEnabled(False)
+
+        stopStream_Btn.setEnabled(True)
+        stopLog_Btn.setEnabled(True)
 
     # queues to update plots
     blink_queue = Queue()
@@ -933,14 +961,33 @@ if __name__ == '__main__':
         else:
             print("  CapViz : stream has already ended")
 
+        startStream_Btn.setEnabled(True)
+        startLog_Btn.setEnabled(True)
+
+        stopStream_Btn.setEnabled(False)
+        stopLog_Btn.setEnabled(False)
+
+
     def startLog():
         # tell Coap server where to send data to
         sendControlMessage(socket.gethostbyname(socket.gethostname()), 'set_data_ip')
 
         sendControlMessage('start_log')
 
+        startStream_Btn.setEnabled(False)
+        startLog_Btn.setEnabled(False)
+
+        stopStream_Btn.setEnabled(True)
+        stopLog_Btn.setEnabled(True)
+
     def stopLog():
         sendControlMessage('stop_log')
+
+        startStream_Btn.setEnabled(True)
+        startLog_Btn.setEnabled(True)
+
+        stopStream_Btn.setEnabled(False)
+        stopLog_Btn.setEnabled(False)
 
 
     def exitApplication():
@@ -1035,8 +1082,8 @@ if __name__ == '__main__':
     # w_blink.setLimits(xMax=0)
     # blink_plot = w_blink.plot()
 
-    blink_data = np.empty(3000) #plotting 10,000 samples
-    blink_time = np.empty(3000)
+    blink_data = np.ones(3000) #plotting 10,000 samples
+    blink_time = np.arange(3000)
 
     blink_plot = w_blink.plot(blink_time, blink_data, pen='y', symbol='t', symbolPen=None, symbolSize=10, symbolBrush=(100, 100, 255, 50))
 
@@ -1073,15 +1120,15 @@ if __name__ == '__main__':
     # w_diff_temp.setLimits(xMax=0)
 
 
-    nose_temp_data = np.empty(200)
-    temple_temp_data = np.empty(200)
-    diff_temp_data = np.empty(200)
+    nose_temp_data = np.ones(200)
+    temple_temp_data = np.ones(200)
+    diff_temp_data = np.ones(200)
 
     temp_ptr = 0
 
-    nose_temp_time = np.empty(200)
-    temple_temp_time = np.empty(200)
-    diff_temp_time = np.empty(200)
+    nose_temp_time = np.arange(200)
+    temple_temp_time = np.arange(200)
+    diff_temp_time = np.arange(200)
 
     nose_temp_plot = w_nose_temp.plot(nose_temp_time, nose_temp_data, pen=(255,0,0), name="Red curve")
     temple_temp_plot = w_temple_temp.plot(temple_temp_time, temple_temp_data, pen=(0, 255, 0), name="Green curve")
@@ -1374,7 +1421,7 @@ if __name__ == '__main__':
 
     def update_OF_blink_plot(blink_queue):
         global blink_data, blink_time, blink_ptr, blink_plot
-
+        global disable_viz
 
 
         blink_ptr = 0
@@ -1382,126 +1429,129 @@ if __name__ == '__main__':
         while True:
             [new_blink_data, new_blink_time] = blink_queue.get()
 
-            # if data is empty, continue
-            if (new_blink_data[0] == 0):
-                continue
+            if(disable_viz != 1):
+                # if data is empty, continue
+                if (new_blink_data[0] == 0):
+                    continue
 
-            # make room for new data in buffer
-            blink_data = np.roll(blink_data, -1 * len(new_blink_data))
-
-
-            blink_time_array = np.arange(blink_ptr, blink_ptr+len(new_blink_data))
-            blink_ptr += len(new_blink_data)
-
-            blink_time = np.roll(blink_time, -1 * len(blink_time_array))
-
-            # add new data by replacing the last n'th samples in buffer
-            blink_data[(len(blink_data)-len(new_blink_data)):] = new_blink_data
-            # print(blink_time_array)
-            # print(blink_ptr)
-            # print(len(new_blink_data))
-            # if(len(blink_time_array) > 1):
-            blink_time[(len(blink_data)-len(blink_time_array)):] = blink_time_array
-
-            # blink_time[(len(blink_data)-len(new_blink_data)):] = new_blink_time
-
-            # blink_data.append(blink_sample)
-            #
-            # blink_data[blink_ptr] = eye_blink
-            # blink_ptr += 1
-
-            # # if pointer exceeds data buffer size
-            # if blink_ptr >= blink_data.shape[0]:
-            #     # store current buffer somewhere temporary
-            #     tmp = blink_data
-            #     # while we create new buffer that is twice the size
-            #     blink_data = np.empty(blink_data.shape[0] * 2)
-            #     # and then put the old data back in
-            #     blink_data[:tmp.shape[0]] = tmp
-
-            # # we are now going to put part of the data into the plot
-            # blink_plot.setData(blink_data[:blink_ptr]) # , fftMode=True
-            # # and set the position of the plot
-            # blink_plot.setPos(-blink_ptr, 0)
+                # make room for new data in buffer
+                blink_data = np.roll(blink_data, -1 * len(new_blink_data))
 
 
-            blink_plot.setData(blink_time, blink_data)
+                blink_time_array = np.arange(blink_ptr, blink_ptr+len(new_blink_data))
+                blink_ptr += len(new_blink_data)
 
-            # if blink_ptr == autoscale_stop_sample:
-            #     blink_plot.enableAutoRange('xy', False)  ## stop auto-scaling after the "autoscale_stop_sample"
+                blink_time = np.roll(blink_time, -1 * len(blink_time_array))
 
-            # update the plots
-            QtGui.QApplication.processEvents()
+                # add new data by replacing the last n'th samples in buffer
+                blink_data[(len(blink_data)-len(new_blink_data)):] = new_blink_data
+                # print(blink_time_array)
+                # print(blink_ptr)
+                # print(len(new_blink_data))
+                # if(len(blink_time_array) > 1):
+                blink_time[(len(blink_data)-len(blink_time_array)):] = blink_time_array
+
+                # blink_time[(len(blink_data)-len(new_blink_data)):] = new_blink_time
+
+                # blink_data.append(blink_sample)
+                #
+                # blink_data[blink_ptr] = eye_blink
+                # blink_ptr += 1
+
+                # # if pointer exceeds data buffer size
+                # if blink_ptr >= blink_data.shape[0]:
+                #     # store current buffer somewhere temporary
+                #     tmp = blink_data
+                #     # while we create new buffer that is twice the size
+                #     blink_data = np.empty(blink_data.shape[0] * 2)
+                #     # and then put the old data back in
+                #     blink_data[:tmp.shape[0]] = tmp
+
+                # # we are now going to put part of the data into the plot
+                # blink_plot.setData(blink_data[:blink_ptr]) # , fftMode=True
+                # # and set the position of the plot
+                # blink_plot.setPos(-blink_ptr, 0)
+
+
+                blink_plot.setData(blink_time, blink_data)
+
+                # if blink_ptr == autoscale_stop_sample:
+                #     blink_plot.enableAutoRange('xy', False)  ## stop auto-scaling after the "autoscale_stop_sample"
+
+                # update the plots
+                QtGui.QApplication.processEvents()
 
     def update_OF_temp_plot(temp_queue):
         global nose_temp_data, temple_temp_data, diff_temp_data
         global nose_temp_time, temple_temp_time, diff_temp_time
         global temp_ptr
         global nose_temp_plot, temple_temp_plot, diff_temp_plot
-
+        global disable_viz
 
 
         while True:
             # print("TEMP: WAITING")
             [new_nose_temp_data, new_temple_temp_data, new_temp_time] = temp_queue.get()
 
-            # if data is empty, break
-            if (new_nose_temp_data == 0 and new_temple_temp_data == 0):
-                continue
+            if disable_viz != 1:
+                # if data is empty, break
+                if (new_nose_temp_data == 0 and new_temple_temp_data == 0):
+                    continue
 
-            # print("TEMP PACKET RECEIVED")
-            # print(new_nose_temp_data)
-            # print(new_temp_time)
+                # print("TEMP PACKET RECEIVED")
+                # print(new_nose_temp_data)
+                # print(new_temp_time)
 
-            # make room for new data in buffer
-            nose_temp_data = np.roll(nose_temp_data, -1)
-            nose_temp_time = np.roll(nose_temp_time, -1)
+                # make room for new data in buffer
+                nose_temp_data = np.roll(nose_temp_data, -1)
+                nose_temp_time = np.roll(nose_temp_time, -1)
 
-            temple_temp_data = np.roll(temple_temp_data, -1)
+                temple_temp_data = np.roll(temple_temp_data, -1)
 
-            diff_temp_data = np.roll(diff_temp_data, -1)
+                diff_temp_data = np.roll(diff_temp_data, -1)
 
-            # add new data by replacing the last n'th samples in buffer
-            nose_temp_data[-1] = new_nose_temp_data
-            nose_temp_time[-1] = new_temp_time
+                # add new data by replacing the last n'th samples in buffer
+                nose_temp_data[-1] = new_nose_temp_data
+                nose_temp_time[-1] = new_temp_time
 
-            temple_temp_data[-1] = new_temple_temp_data
-            temple_temp_time[-1] = new_temp_time
+                temple_temp_data[-1] = new_temple_temp_data
+                temple_temp_time[-1] = new_temp_time
 
-            diff_temp_data[-1] = new_nose_temp_data - new_temple_temp_data
-            diff_temp_time[-1] = new_temp_time
+                diff_temp_data[-1] = new_nose_temp_data - new_temple_temp_data
+                diff_temp_time[-1] = new_temp_time
 
-            # blink_data.append(blink_sample)
-            #
-            # blink_data[blink_ptr] = eye_blink
-            # blink_ptr += 1
+                # blink_data.append(blink_sample)
+                #
+                # blink_data[blink_ptr] = eye_blink
+                # blink_ptr += 1
 
-            # # if pointer exceeds data buffer size
-            # if blink_ptr >= blink_data.shape[0]:
-            #     # store current buffer somewhere temporary
-            #     tmp = blink_data
-            #     # while we create new buffer that is twice the size
-            #     blink_data = np.empty(blink_data.shape[0] * 2)
-            #     # and then put the old data back in
-            #     blink_data[:tmp.shape[0]] = tmp
+                # # if pointer exceeds data buffer size
+                # if blink_ptr >= blink_data.shape[0]:
+                #     # store current buffer somewhere temporary
+                #     tmp = blink_data
+                #     # while we create new buffer that is twice the size
+                #     blink_data = np.empty(blink_data.shape[0] * 2)
+                #     # and then put the old data back in
+                #     blink_data[:tmp.shape[0]] = tmp
 
-            # # we are now going to put part of the data into the plot
-            # blink_plot.setData(blink_data[:blink_ptr]) # , fftMode=True
-            # # and set the position of the plot
-            # blink_plot.setPos(-blink_ptr, 0)
+                # # we are now going to put part of the data into the plot
+                # blink_plot.setData(blink_data[:blink_ptr]) # , fftMode=True
+                # # and set the position of the plot
+                # blink_plot.setPos(-blink_ptr, 0)
 
-            nose_temp_plot.setData(nose_temp_time, nose_temp_data)
-            temple_temp_plot.setData(nose_temp_time, temple_temp_data)
-            diff_temp_plot.setData(nose_temp_time, diff_temp_data)
+                nose_temp_plot.setData(nose_temp_time, nose_temp_data)
+                temple_temp_plot.setData(nose_temp_time, temple_temp_data)
+                diff_temp_plot.setData(nose_temp_time, diff_temp_data)
 
-            # if blink_ptr == autoscale_stop_sample:
-            #     blink_plot.enableAutoRange('xy', False)  ## stop auto-scaling after the "autoscale_stop_sample"
+                # if blink_ptr == autoscale_stop_sample:
+                #     blink_plot.enableAutoRange('xy', False)  ## stop auto-scaling after the "autoscale_stop_sample"
 
-            # update the plots
-            QtGui.QApplication.processEvents()
+                # update the plots
+                QtGui.QApplication.processEvents()
 
     def update_OF_inertial_plot(inertial_queue):
         global quat_real, quat_i, quat_j, quat_k, activity_class
+        global disable_viz
         # global nose_temp_time, temple_temp_time, diff_temp_time
         # global temp_ptr
         # global nose_temp_plot, temple_temp_plot, diff_temp_plot
@@ -1516,35 +1566,37 @@ if __name__ == '__main__':
 
             send_imu_to_vis(quat_real, quat_i, quat_j, quat_k)
 
-            # print(activity_class)
 
-            line_quat_real.setText(' ' + str(quat_real))
-            line_quat_i.setText(' ' + str(quat_i) + '\ti')
-            line_quat_j.setText(' ' + str(quat_j) + '\tj')
-            line_quat_k.setText(' ' + str(quat_k) + '\tk')
+            if disable_viz != 1:
+                # print(activity_class)
 
-            # # Separate out the confidence vector
-            try:
-                activityVector = np.array(activity_class)
-            except:
-                print(" CapViz : ACTIVITY VECTOR EMPTY or NOT 9 BYTES")
+                line_quat_real.setText(' ' + str(quat_real))
+                line_quat_i.setText(' ' + str(quat_i) + '\ti')
+                line_quat_j.setText(' ' + str(quat_j) + '\tj')
+                line_quat_k.setText(' ' + str(quat_k) + '\tk')
 
-            if(len(activityVector) == 9):
-                line_activity_0.setText(str(activityVector[0]))
-                line_activity_1.setText(str(activityVector[1]))
-                line_activity_2.setText(str(activityVector[2]))
-                line_activity_3.setText(str(activityVector[3]))
-                line_activity_4.setText(str(activityVector[4]))
-                line_activity_5.setText(str(activityVector[5]))
-                line_activity_6.setText(str(activityVector[6]))
-                line_activity_7.setText(str(activityVector[7]))
-                line_activity_8.setText(str(activityVector[8]))
-                #
-                # # Find what the greatest confidence activity is
-                activity_class = activityClasses[np.where(activityVector == np.amax(activityVector))[0][0]]
-                line_activity.setText('\t' + str(activity_class))
+                # # Separate out the confidence vector
+                try:
+                    activityVector = np.array(activity_class)
+                except:
+                    print(" CapViz : ACTIVITY VECTOR EMPTY or NOT 9 BYTES")
 
-            QtGui.QApplication.processEvents()
+                if(len(activityVector) == 9):
+                    line_activity_0.setText(str(activityVector[0]))
+                    line_activity_1.setText(str(activityVector[1]))
+                    line_activity_2.setText(str(activityVector[2]))
+                    line_activity_3.setText(str(activityVector[3]))
+                    line_activity_4.setText(str(activityVector[4]))
+                    line_activity_5.setText(str(activityVector[5]))
+                    line_activity_6.setText(str(activityVector[6]))
+                    line_activity_7.setText(str(activityVector[7]))
+                    line_activity_8.setText(str(activityVector[8]))
+                    #
+                    # # Find what the greatest confidence activity is
+                    activity_class = activityClasses[np.where(activityVector == np.amax(activityVector))[0][0]]
+                    line_activity.setText('\t' + str(activity_class))
+
+                QtGui.QApplication.processEvents()
 
     def send_imu_to_vis(quat_w,quat_i,quat_j,quat_k):
 
@@ -1589,30 +1641,32 @@ if __name__ == '__main__':
         # global nose_temp_time, temple_temp_time, diff_temp_time
         # global temp_ptr
         # global nose_temp_plot, temple_temp_plot, diff_temp_plot
+        global disable_viz
 
         while True:
             # print("TEMP: WAITING")
             [pos_x, pos_y, pos_z, pos_accuracy, time_ms_pos] = pos_queue.get()
 
-            # print(str(pos_x) + "\t" + str(pos_y) + "\t" + str(pos_z))
-            if (pos_x == 0 and pos_y == 0 and pos_z == 0):
-                continue
-            print(str(pos_x) + "\t" + str(pos_y) + "\t" + str(pos_z))
+            if disable_viz != 1:
+                # print(str(pos_x) + "\t" + str(pos_y) + "\t" + str(pos_z))
+                if (pos_x == 0 and pos_y == 0 and pos_z == 0):
+                    continue
+                print(str(pos_x) + "\t" + str(pos_y) + "\t" + str(pos_z))
 
-            # loc_visualizer_queue.put
-            send_loc_to_vis(pos_x, pos_y, pos_z, pos_accuracy, time_ms_pos)
+                # loc_visualizer_queue.put
+                send_loc_to_vis(pos_x, pos_y, pos_z, pos_accuracy, time_ms_pos)
 
-            # line_quat_real.setText(' ' + str(quat_real))
-            # line_quat_i.setText(' ' + str(quat_i) + '\ti')
-            # line_quat_j.setText(' ' + str(quat_j) + '\tj')
-            # line_quat_k.setText(' ' + str(quat_k) + '\tk')
+                # line_quat_real.setText(' ' + str(quat_real))
+                # line_quat_i.setText(' ' + str(quat_i) + '\ti')
+                # line_quat_j.setText(' ' + str(quat_j) + '\tj')
+                # line_quat_k.setText(' ' + str(quat_k) + '\tk')
 
-            if(len(activityVector) == 9):
-                line_x_loc.setText("\tx: " + str(pos_x))
-                line_y_loc.setText("\ty: " + str(pos_y))
-                line_z_loc.setText("\tz: " + str(pos_z))
+                if(len(activityVector) == 9):
+                    line_x_loc.setText("\tx: " + str(pos_x))
+                    line_y_loc.setText("\ty: " + str(pos_y))
+                    line_z_loc.setText("\tz: " + str(pos_z))
 
-            QtGui.QApplication.processEvents()
+                QtGui.QApplication.processEvents()
 
     # def update_OF_eye_angle_plot(eye_angle_x, eye_angle_y):
     #     global eye_angle_x_plot_data, eye_angle_y_plot_data, eye_ptr, eye_angle_x_plot, eye_angle_y_plot

@@ -29,7 +29,8 @@ import struct
 from serial import Serial
 
 PORT_NAME = "COM70"
-BAUDRATE = 115200
+# BAUDRATE = 115200
+BAUDRATE = 230400
 READ_TIMEOUT = 15
 DELIMITER = b'\n\n'
 
@@ -174,6 +175,20 @@ captive_total_header_types = ""
 for _, val in captivate_header_sizes.items():
     captive_total_header_types = captive_total_header_types + val
 
+def sendToLogger(packet):
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # connect to data collector
+        s.connect(('localhost', 5555))
+        # encrypt message to be sent
+        # if this is a message to set leds
+        # s.send(bytearray(message, 'utf-8'))
+        s.send(packet)
+    except socket.error as msg:
+        print("Caught exception socket.error : " + str(msg))
+    finally:
+        s.close()
+
 import re
 def get_serial_data(port, unicode=False):
     serial_byte_data = port.read_until(terminator=DELIMITER)
@@ -190,18 +205,14 @@ def get_serial_data(port, unicode=False):
         # msg_unpacked = msg_unpacked._make(unpack(captive_total_header_types, serial_byte_data))._asdict()
         # print(msg_unpacked)
 
-        try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            # connect to data collector
-            s.connect(('localhost', 5555))
-            # encrypt message to be sent
-            # if this is a message to set leds
-            # s.send(bytearray(message, 'utf-8'))
-            s.send(serial_byte_data)
-        except socket.error as msg:
-            print("Caught exception socket.error : " + str(msg))
-        finally:
-            s.close()
+        system_control_thread = threading.Thread(target=sendToLogger,
+                                                 args=(serial_byte_data,))
+        # system_control_thread.setDaemon(True)
+        system_control_thread.start()
+    else:
+        print(" Serial input is too long: " + str(len(serial_byte_data)))
+
+
 
 
     # if unicode:
@@ -230,7 +241,7 @@ def main():
     try:
 
         port = Serial(port=PORT_NAME, baudrate=BAUDRATE, timeout=READ_TIMEOUT)
-        port.write(struct.pack('bbbbbb',1,1,0,0,1,0))
+        port.write(struct.pack('bbbbbb',1,1,1,0,1,0))
     except Exception:
         print(f'\033[31munable to open serial port {PORT_NAME}\033[39m')
     # try:

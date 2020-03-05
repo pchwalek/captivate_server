@@ -1,1 +1,0 @@
-blink_data,blink_tick_ms,blink_payload_ID,temple_temp,temple_therm,temple_tick_ms,nose_temp,nose_therm,nose_tick_ms,parsed_sec_tick_ms,parsed_sec_epoch,quatI,quatJ,quatK,quatReal,quatRadianAccuracy,rot_tick_ms,activityConfidence,tick_ms_activity,pos_x,pos_y,pos_z,pos_accuracy,tick_ms_pos,pos_epoch,tick_ms,epoch,system_epoch
