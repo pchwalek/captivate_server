@@ -6,6 +6,8 @@ import socket
 from _thread import *
 import threading
 
+import gc
+
 import random
 import sys
 import time
@@ -231,11 +233,11 @@ class CaptivateData():
 
     def __init__(self):
         # instantiate dataFrame to store incoming packets
-        self.data_0 = pd.DataFrame(columns=captivate_header)
-        self.data_1 = pd.DataFrame(columns=captivate_header)
 
-        self.data = self.data_0
-        self.checkpoint_data = self.data_1
+        self.header = captivate_header
+
+        self.data = pd.DataFrame(columns=self.header)
+        self.checkpoint_data = pd.DataFrame(columns=self.header)
         self.log_cycle = 0
 
         self.filename = "captivate_msg_log_"
@@ -304,20 +306,24 @@ class CaptivateData():
         self.packet_cnt += 1
         print("  CAPTIVATE LOGGER : packet received : " + str(self.packet_cnt))
 
-        for key, val in self.sensors.items():
-            self.sensors[key].add_data(sample)
+        # for key, val in self.sensors.items():
+        #     self.sensors[key].add_data(sample)
 
         if self.data.shape[0] > SAVE_CHECKPOINT_CNT:
             self.checkpoint_save_data()
 
     def checkpoint_save_data(self):
         if (self.log_cycle == 0):
+            self.checkpoint_data.drop(self.checkpoint_data.index, inplace=True)
+            gc.collect()
             self.checkpoint_data = self.data
-            self.data = self.data_1
+            self.data = pd.DataFrame(columns=self.header)
             self.log_cycle = 1
         else:
+            self.checkpoint_data.drop(self.checkpoint_data.index, inplace=True)
+            gc.collect()
             self.checkpoint_data = self.data
-            self.data = self.data_0
+            self.data = pd.DataFrame(columns=self.header)
             self.log_cycle = 0
 
         if(self.first_append):
@@ -333,8 +339,8 @@ class CaptivateData():
             #     self.save_location + self.filename + str(int(self.start_time)) + Filetype,
             #     mode='a', index=False, header=False)
 
-        for key, val in self.sensors.items():
-            self.sensors[key].checkpoint_save_data()
+        # for key, val in self.sensors.items():
+        #     self.sensors[key].checkpoint_save_data()
 
         # clear dataframe
         # self.checkpoint_data.drop(self.data.index, inplace=True)
@@ -346,8 +352,8 @@ class CaptivateData():
         #     self.checkpoint_data, self.save_location + self.filename + str(int(self.start_time)) + Filetype, False,))
         self.data.iloc[self.start_point:].to_csv(self.save_location + self.filename + str(int(self.start_time)) + Filetype, mode='a', index=False, header=False)
 
-        for key, val in self.sensors.items():
-            self.sensors[key].save_data()
+        # for key, val in self.sensors.items():
+        #     self.sensors[key].save_data()
 
     def set_save_location(self, new_directory):
         print(self.save_location)
@@ -385,11 +391,13 @@ class BlinkData():
         # self.data = pd.DataFrame(columns=blink_sub_header)
 
         # instantiate dataFrame to store incoming packets
-        self.data_0 = pd.DataFrame(columns=blink_sub_header)
-        self.data_1 = pd.DataFrame(columns=blink_sub_header)
+        # self.data_0 = pd.DataFrame(columns=blink_sub_header)
+        # self.data_1 = pd.DataFrame(columns=blink_sub_header)
 
-        self.data = self.data_0
-        self.checkpoint_data = self.data_1
+        self.header = blink_sub_header
+
+        self.data = pd.DataFrame(columns=self.header)
+        self.checkpoint_data = pd.DataFrame(columns=self.header)
         self.log_cycle = 0
 
         # default settings
@@ -433,12 +441,16 @@ class BlinkData():
 
     def checkpoint_save_data(self):
         if (self.log_cycle == 0):
+            self.checkpoint_data.drop(self.checkpoint_data.index, inplace=True)
+
             self.checkpoint_data = self.data
-            self.data = self.data_1
+            self.data = pd.DataFrame(columns=self.header)
             self.log_cycle = 1
         else:
+            self.checkpoint_data.drop(self.checkpoint_data.index, inplace=True)
+
             self.checkpoint_data = self.data
-            self.data = self.data_0
+            self.data = pd.DataFrame(columns=self.header)
             self.log_cycle = 0
 
         if (self.first_append):
@@ -511,11 +523,13 @@ class ThermData():
         # self.data = pd.DataFrame(columns=therm_sub_header)
 
         # instantiate dataFrame to store incoming packets
-        self.data_0 = pd.DataFrame(columns=therm_sub_header)
-        self.data_1 = pd.DataFrame(columns=therm_sub_header)
+        # self.data_0 = pd.DataFrame(columns=therm_sub_header)
+        # self.data_1 = pd.DataFrame(columns=therm_sub_header)
 
-        self.data = self.data_0
-        self.checkpoint_data = self.data_1
+        self.header = therm_sub_header
+
+        self.data = pd.DataFrame(columns=self.header)
+        self.checkpoint_data = pd.DataFrame(columns=self.header)
         self.log_cycle = 0
 
         # # default settings
@@ -559,12 +573,16 @@ class ThermData():
 
     def checkpoint_save_data(self):
         if (self.log_cycle == 0):
+            self.checkpoint_data.drop(self.checkpoint_data.index, inplace=True)
+
             self.checkpoint_data = self.data
-            self.data = self.data_1
+            self.data = pd.DataFrame(columns=self.header)
             self.log_cycle = 1
         else:
+            self.checkpoint_data.drop(self.checkpoint_data.index, inplace=True)
+
             self.checkpoint_data = self.data
-            self.data = self.data_0
+            self.data = pd.DataFrame(columns=self.header)
             self.log_cycle = 0
 
         if (self.first_append):
@@ -647,11 +665,13 @@ class InertialData():
         # self.data = pd.DataFrame(columns=inertial_sub_header)
 
         # instantiate dataFrame to store incoming packets
-        self.data_0 = pd.DataFrame(columns=inertial_sub_header)
-        self.data_1 = pd.DataFrame(columns=inertial_sub_header)
+        # self.data_0 = pd.DataFrame(columns=inertial_sub_header)
+        # self.data_1 = pd.DataFrame(columns=inertial_sub_header)
 
-        self.data = self.data_0
-        self.checkpoint_data = self.data_1
+        self.header = inertial_sub_header
+
+        self.data = pd.DataFrame(columns=self.header)
+        self.checkpoint_data = pd.DataFrame(columns=self.header)
         self.log_cycle = 0
 
         # # default settings
@@ -695,12 +715,16 @@ class InertialData():
 
     def checkpoint_save_data(self):
         if (self.log_cycle == 0):
+            self.checkpoint_data.drop(self.checkpoint_data.index, inplace=True)
+
             self.checkpoint_data = self.data
-            self.data = self.data_1
+            self.data = pd.DataFrame(columns=self.header)
             self.log_cycle = 1
         else:
+            self.checkpoint_data.drop(self.checkpoint_data.index, inplace=True)
+
             self.checkpoint_data = self.data
-            self.data = self.data_0
+            self.data = pd.DataFrame(columns=self.header)
             self.log_cycle = 0
 
         if (self.first_append):
@@ -782,11 +806,10 @@ class PosData():
         # self.data = pd.DataFrame(columns=pos_sub_header)
 
         # instantiate dataFrame to store incoming packets
-        self.data_0 = pd.DataFrame(columns=pos_sub_header)
-        self.data_1 = pd.DataFrame(columns=pos_sub_header)
+        self.header = pos_sub_header
 
-        self.data = self.data_0
-        self.checkpoint_data = self.data_1
+        self.data = pd.DataFrame(columns=self.header)
+        self.checkpoint_data = pd.DataFrame(columns=self.header)
         self.log_cycle = 0
 
         # # default settings
@@ -830,12 +853,16 @@ class PosData():
 
     def checkpoint_save_data(self):
         if (self.log_cycle == 0):
+            self.checkpoint_data.drop(self.checkpoint_data.index, inplace=True)
+
             self.checkpoint_data = self.data
-            self.data = self.data_1
+            self.data = pd.DataFrame(columns=self.header)
             self.log_cycle = 1
         else:
+            self.checkpoint_data.drop(self.checkpoint_data.index, inplace=True)
+
             self.checkpoint_data = self.data
-            self.data = self.data_0
+            self.data = pd.DataFrame(columns=self.header)
             self.log_cycle = 0
 
         if (self.first_append):
