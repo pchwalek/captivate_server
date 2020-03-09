@@ -329,7 +329,7 @@ class CaptivateData():
         if(self.first_append):
             self.first_append = 0
 
-            start_new_thread(saveFile, (self.checkpoint_data, self.save_location + self.filename + str(int(self.start_time)) + Filetype, True,))
+            start_new_thread(saveFile, (self.checkpoint_datswa, self.save_location + self.filename + str(int(self.start_time)) + Filetype, True,))
             # self.data.iloc[self.start_point:].to_csv(self.save_location + self.filename + str(int(self.start_time)) + Filetype,
             #                                         mode='a', index=False, header=True)
         else:
@@ -442,13 +442,13 @@ class BlinkData():
     def checkpoint_save_data(self):
         if (self.log_cycle == 0):
             self.checkpoint_data.drop(self.checkpoint_data.index, inplace=True)
-
+            gc.collect()
             self.checkpoint_data = self.data
             self.data = pd.DataFrame(columns=self.header)
             self.log_cycle = 1
         else:
             self.checkpoint_data.drop(self.checkpoint_data.index, inplace=True)
-
+            gc.collect()
             self.checkpoint_data = self.data
             self.data = pd.DataFrame(columns=self.header)
             self.log_cycle = 0
@@ -574,13 +574,13 @@ class ThermData():
     def checkpoint_save_data(self):
         if (self.log_cycle == 0):
             self.checkpoint_data.drop(self.checkpoint_data.index, inplace=True)
-
+            gc.collect()
             self.checkpoint_data = self.data
             self.data = pd.DataFrame(columns=self.header)
             self.log_cycle = 1
         else:
             self.checkpoint_data.drop(self.checkpoint_data.index, inplace=True)
-
+            gc.collect()
             self.checkpoint_data = self.data
             self.data = pd.DataFrame(columns=self.header)
             self.log_cycle = 0
@@ -716,13 +716,13 @@ class InertialData():
     def checkpoint_save_data(self):
         if (self.log_cycle == 0):
             self.checkpoint_data.drop(self.checkpoint_data.index, inplace=True)
-
+            gc.collect()
             self.checkpoint_data = self.data
             self.data = pd.DataFrame(columns=self.header)
             self.log_cycle = 1
         else:
             self.checkpoint_data.drop(self.checkpoint_data.index, inplace=True)
-
+            gc.collect()
             self.checkpoint_data = self.data
             self.data = pd.DataFrame(columns=self.header)
             self.log_cycle = 0
@@ -854,13 +854,13 @@ class PosData():
     def checkpoint_save_data(self):
         if (self.log_cycle == 0):
             self.checkpoint_data.drop(self.checkpoint_data.index, inplace=True)
-
+            gc.collect()
             self.checkpoint_data = self.data
             self.data = pd.DataFrame(columns=self.header)
             self.log_cycle = 1
         else:
             self.checkpoint_data.drop(self.checkpoint_data.index, inplace=True)
-
+            gc.collect()
             self.checkpoint_data = self.data
             self.data = pd.DataFrame(columns=self.header)
             self.log_cycle = 0
