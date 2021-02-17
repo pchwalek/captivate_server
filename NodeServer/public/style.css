@@ -1,0 +1,42 @@
+body{
+    margin:0;
+    padding:0;
+    overflow: hidden;
+    font-family: Raleway;
+}
+
+header{
+    background: #2b303b;
+    height: 50px;
+    width:100%;
+    display: flex;
+    color:#fff;
+}
+
+.logo img{
+  height: 45px;
+}
+
+.subheader{
+    display: flex;
+    align-items: center;
+    margin: 0px;
+}
+
+.logout{
+    flex:1;
+    justify-content: flex-end;
+    padding:15px;
+    display: none;
+}
+
+.logout a{
+    color:#fff;
+    text-decoration: none;
+}
+
+#weatherChart{
+    height: 80% !important;
+    width: 95% !important;
+    margin: 0 auto;
+}
