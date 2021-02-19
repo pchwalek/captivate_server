@@ -53,7 +53,8 @@
 // });
 
 var MongoClient = require('mongodb').MongoClient;
-var url = "mongodb://localhost:27017/";
+//var url = "mongodb://localhost:27017/";
+var url = "mongodb+srv://pchwalek:jOn2Ufkv6k0WBW0F@captivates.jopky.mongodb.net/myFirstDatabase?retryWrites=true&w=majority"
 const struct = require('python-struct');
 
 
@@ -175,10 +176,10 @@ MongoClient.connect(url, {useNewUrlParser: true, useUnifiedTopology: true}, func
       dbo.collection("captivateFiltered").insertOne(packetFiltered, function(err, res) {
         if (err) throw err;
       packetTracker += 1
-      // console.log(packetTracker)
+      console.log(packetTracker)
       // console.log(message.length)
       // console.log(message)
-      console.log(packetFiltered.nose_temp)
+      // console.log(packetFiltered.nose_temp)
         //console.log("1 document inserted");
 
       });
