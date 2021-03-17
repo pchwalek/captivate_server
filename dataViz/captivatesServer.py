@@ -231,6 +231,7 @@ def sensorDataReceived(ip_data_queue, data_queue, addr_queue, port, data_collect
 
         try:
             # grab data packet if available
+            print("grabbing data from quque")
             sender_addr, packet = data_queue.get(timeout=10)
             print(" DEBUG: grabbed from queue")
 
@@ -255,7 +256,7 @@ def sensorDataReceived(ip_data_queue, data_queue, addr_queue, port, data_collect
                 print("  COAP Server : closing data export thread")
                 break
         except queue.Empty:
-
+            print("queue empty")
             # check if new IP has been given
             try:
                 ip_address_of_collector = ip_data_queue.get(False)
@@ -281,7 +282,10 @@ def sensorDataReceived(ip_data_queue, data_queue, addr_queue, port, data_collect
                 continue
 
         finally:
-            s.close()
+            try:
+                s.close()
+            except (UnboundLocalError,NameError) as e:
+                print("socket not opened so nothing to close!") 
 
 class CaptivatesLoggerResource(Resource):
     def __init__(self, data_queue, name="CaptivatesLoggerResource", coap_server=None):
