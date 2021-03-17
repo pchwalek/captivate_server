@@ -13,6 +13,7 @@ import time
 
 import sys
 sys.path.append('/home/pi/captivate/dataViz/CoAPthon3')
+sys.path.append('/home/pi/dev/captivate_server/dataViz/CoAPthon3')
 # sys.path.append('C:\dev\glasses\dataViz\CoAPthon3')
 
 
@@ -21,7 +22,7 @@ from coapthon.resources.resource import Resource
 from coapthon.server.coap import CoAP
 from coapthon.client.helperclient import HelperClient
 from _thread import start_new_thread
-from exampleresources import DebugResource
+#from exampleresources import DebugResource
 import errno
 
 from struct import *
@@ -1026,7 +1027,7 @@ def coapServer():
 
     # can server do multicast
     # todo: unsure what this flag does since there is a lack in the documentation explaining it
-    multicast = False
+    multicast = True 
 
     # ports for data comms
     port_control = 5554  # port for passing control messages to COAP server
@@ -1057,14 +1058,14 @@ def coapServer():
     logger = CaptivatesLoggerResource(data_queue=data_queue, coap_server=server)
     time_sync = TimeSyncResource(coap_server=server, import_ip_queue=recv_addr_queue)
     node_info = NodeInfoResource(coap_server=server, import_ip_queue=recv_addr_queue)
-    test_resource = DebugResource(coap_server=server)
+    #test_resource = DebugResource(coap_server=server)
     touch_resource = TouchResource(coap_server=server)
     location_resource = LocationResource(coap_server=server)
 
     server.add_resource('nodeInfo/', node_info)
     server.add_resource('borderLog/', logger)
     server.add_resource('borderTime/', time_sync)
-    server.add_resource('borderTest/', test_resource)
+    #server.add_resource('borderTest/', test_resource)
     server.add_resource('capTouch/', touch_resource)
     server.add_resource('capLoc/', location_resource)
 
@@ -1110,8 +1111,10 @@ def coapServer():
     lightingLabTimer = threading.Timer(LIGHTS_TIMEOUT_TIME, checkLightingLabTimeout, args=[location_resource])
     lightingLabTimer.start()
 
-    # broadcastAddr = threading.Timer(IP_BROADCAST_MULTICAST_PERIOD, broadcastAddressToNodes)
-    # broadcastAddr.start()
+    # COMMENT OUT BELOW 2 LINES
+    #broadcastAddr = threading.Timer(IP_BROADCAST_MULTICAST_PERIOD, broadcastAddressToNodes)
+    broadcastAddr = threading.Timer(5, broadcastAddressToNodes)
+    broadcastAddr.start()
 
     # broadcast border router to all nodes and grab IPs of all nodes in network
     broadcastAddressToNodes()
