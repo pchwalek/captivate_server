@@ -47,7 +47,7 @@ if __name__ == '__main__':
     # t.start(50)
     #QtGui.QApplication.instance().exec_()
 
-    server_IP = "18.27.126.69"
+    server_IP = "18.27.124.224"
 
     recording = 0
     test_number = 0
