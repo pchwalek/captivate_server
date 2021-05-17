@@ -122,15 +122,165 @@ const captivateHeaderSizes = {'blink_data': '100s',
       //                               'blink_tick_ms': 'I',
       //                               'blink_data': '100s'}
 
-const captivateKeys = Object.keys(captivateHeaderSizes)
 
+/*const inertialHeaderSizes = {
+    'x_1': 'H',
+    'y_1': 'H',
+    'z_1': 'H',
+    'imu_tick_1': 'H',
+    'tick_1': 'I',
+    'accuracy_1': 'f',
+
+    'x_2': 'H',
+    'y_2': 'H',
+    'z_2': 'H',
+    'imu_tick_2': 'H',
+    'tick_2': 'I',
+    'accuracy_2': 'f',
+
+    'x_3': 'H',
+    'y_3': 'H',
+    'z_3': 'H',
+    'imu_tick_3': 'H',
+    'tick_3': 'I',
+    'accuracy_3': 'f',
+
+    'x_4': 'H',
+    'y_4': 'H',
+    'z_4': 'H',
+    'imu_tick_4': 'H',
+    'tick_4': 'I',
+    'accuracy_4': 'f',
+
+    'x_5': 'H',
+    'y_5': 'H',
+    'z_5': 'H',
+    'imu_tick_5': 'H',
+    'tick_5': 'I',
+    'accuracy_5': 'f',
+
+    'x_6': 'H',
+    'y_6': 'H',
+    'z_6': 'H',
+    'imu_tick_6': 'H',
+    'tick_6': 'I',
+    'accuracy_6': 'f',
+
+    'x_7': 'H',
+    'y_7': 'H',
+    'z_7': 'H',
+    'imu_tick_7': 'H',
+    'tick_7': 'I',
+    'accuracy_7': 'f',
+
+    'x_8': 'H',
+    'y_8': 'H',
+    'z_8': 'H',
+    'imu_tick_8': 'H',
+    'tick_8': 'I',
+    'accuracy_8': 'f',
+
+    'x_9': 'H',
+    'y_9': 'H',
+    'z_9': 'H',
+    'imu_tick_9': 'H',
+    'tick_9': 'I',
+    'accuracy_9': 'f',
+
+    'x_10': 'H',
+    'y_10': 'H',
+    'z_10': 'H',
+    'imu_tick_10': 'H',
+    'tick_10': 'I',
+    'accuracy_10': 'f',
+
+    'x_11': 'H',
+    'y_11': 'H',
+    'z_11': 'H',
+    'imu_tick_11': 'H',
+    'tick_11': 'I',
+    'accuracy_11': 'f',
+
+    'x_12': 'H',
+    'y_12': 'H',
+    'z_12': 'H',
+    'imu_tick_12': 'H',
+    'tick_12': 'I',
+    'accuracy_12': 'f',
+
+    'x_13': 'H',
+    'y_13': 'H',
+    'z_13': 'H',
+    'imu_tick_13': 'H',
+    'tick_13': 'I',
+    'accuracy_13': 'f',
+
+    'x_14': 'H',
+    'y_14': 'H',
+    'z_14': 'H',
+    'imu_tick_14': 'H',
+    'tick_14': 'I',
+    'accuracy_14': 'f',
+}*/
+
+const metadataSizes = {
+    'desc': 'I',
+    'packetIdx': 'I'
+}
+
+const inertialPayloadSizes = {
+    'x': 'H',
+    'y': 'H',
+    'z': 'H',
+    'imu_tick': 'H',
+    'tick': 'I',
+    'accuracy': 'f',
+}
+
+
+/*const inertialHeaderSizes = {
+    'desc': 'I',
+    'packetIdx': 'I',
+    'data': '224s',
+
+}*/
+
+//const inertialHeaderSizes = {
+//    'pos_x': 'H',
+//    'pos_y': 'H',
+//    'pos_z': 'H',
+//    'IMU_tick': 'H',
+//    'accuracy': 'f',
+//}
+
+const captivateKeys = Object.keys(captivateHeaderSizes)
 var structSizeString = ""
 for (const [key, value] of Object.entries(captivateHeaderSizes)) {
   structSizeString += value
 }
 const structSize = struct.sizeOf(structSizeString);
+console.log("Original packet size: ");
+console.log(structSize);
 
-// console.log(structSize)
+// Meatadata
+const metadatalKeys = Object.keys(metadataSizes)
+var structMetadataSizeString = ""
+for (const [key, value] of Object.entries(metadataSizes)) {
+    structMetadataSizeString += value
+}
+const structMetadataSize = struct.sizeOf(structMetadataSizeString);
+console.log("Metadata size: ");
+console.log(structMetadataSize);
+
+// Inertial Payload
+const inertialPayloadKeys = Object.keys(inertialPayloadSizes)
+var structInertialPayloadSizeString = ""
+for (const [key, value] of Object.entries(inertialPayloadSizes)) {
+    structInertialPayloadSizeString += value
+}
+const structInertialPayloadSize = struct.sizeOf(structInertialPayloadSizeString);
+console.log("Inertial payload size: ");
+console.log(structInertialPayloadSize);
 
 const zipObject = (props, values) => {
   return props.reduce((prev, prop, i) => {
@@ -141,11 +291,63 @@ const zipObject = (props, values) => {
 function captivateFilter(clientAddr, serverTimestamp, packetRaw){
   serverData = {source: clientAddr,
                     serverTimestamp: serverTimestamp}
+
   parsedPayload = struct.unpack(structSizeString, Buffer.from(packetRaw, 'hex'))
+
   mergedPayload = zipObject(captivateKeys, parsedPayload)
 
   packetFiltered = {...serverData, ...mergedPayload}
   return packetFiltered
+}
+
+function inertialData(clientAddr, serverTimestamp, packetRaw) {
+    serverData = {
+        source: clientAddr,
+        serverTimestamp: serverTimestamp
+    }
+
+    //console.log(Buffer.from(packetRaw, 'hex'))
+    //parsedPayload = struct.unpack('IIHHHHIfHHHHIfHHHHIfHHHHIfHHHHIfHHHHIfHHHHIfHHHHIfHHHHIfHHHHIfHHHHIfHHHHIfHHHHIfHHHHIf', Buffer.from(packetRaw, 'hex'))
+   // console.log(parsedPayload);
+
+
+    // grab header
+    parsedPayload = struct.unpack(structMetadataSizeString, Buffer.from(packetRaw, 'hex'))
+
+    //populate payload fields
+    payload = packetRaw.substring(16)
+    numOfElements = payload.length / structInertialPayloadSize / 2 //divide by 2 since the hex is represented as string so 1 bytes = 2 characters
+
+    payloadElements = { }
+    for (i = 0; i < numOfElements; i++) {
+        payloadElement = struct.unpack(structInertialPayloadSizeString, Buffer.from(payload, 'hex'))
+        mergedPayloadElement = zipObject(inertialPayloadKeys, payloadElement)
+        payloadElements[i.toString()] = mergedPayloadElement
+        payload = payload.substring(structInertialPayloadSize * 2)
+    }
+
+   // structInertialPayloadSizeString
+   //  structInertialPayloadSize
+
+/*    console.log(parsedPayload);
+    console.log(Buffer.from(packetRaw, 'hex'));
+    console.log(packetRaw.substring(16).length)
+    console.log(typeof packetRaw)*/
+
+    //console.log(Buffer.from(parsedPayload.data,'hex'));
+
+    //for (const [key, value] of Object.entries(Buffer.from(packetRaw, 'hex'))) {
+    //    console.log(value)
+    //}
+
+    mergedPayload = zipObject(metadatalKeys, parsedPayload)
+    packetFiltered = { ...serverData, ...mergedPayload }
+    packetFiltered.payload = payloadElements
+
+    //packetFiltered.payload = packetRaw.substring(16);
+    //console.log(packetFiltered.data.length);
+
+    return packetFiltered
 }
 
 MongoClient.connect(url, {useNewUrlParser: true, useUnifiedTopology: true}, function(err, db) {
@@ -172,14 +374,19 @@ MongoClient.connect(url, {useNewUrlParser: true, useUnifiedTopology: true}, func
     ws.on('message', function incoming(message) {
 
 
-      packetFiltered = captivateFilter(clientAddr, Date.now(), message)
-      dbo.collection("captivateFiltered").insertOne(packetFiltered, function(err, res) {
-        if (err) throw err;
+     // packetFiltered = captivateFilter(clientAddr, Date.now(), message)
+     // dbo.collection("captivateFiltered").insertOne(packetFiltered, function(err, res) {
+     //     if (err) throw err;
+
+      packetFiltered = inertialData(clientAddr, Date.now(), message)
+      dbo.collection("inertialMeas").insertOne(packetFiltered, function (err, res) {
+          if (err) throw err;
+
       packetTracker += 1
       console.log(packetTracker)
       // console.log(message.length)
       // console.log(message)
-      // console.log(packetFiltered.nose_temp)
+      //console.log(packetFiltered.data)
         //console.log("1 document inserted");
 
       });
